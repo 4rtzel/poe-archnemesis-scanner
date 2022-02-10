@@ -155,6 +155,7 @@ class ImageScanner:
         self._screen_height = screen_height
         self._scanner_window_size = (0, int(self._screen_height / 4), int(self._screen_width / 3), int(self._screen_height * 2 / 3))
         self._items_map = items_map
+        self._confidence_threshold = 0.94
 
     def scan(self) -> Dict[str, List[Tuple[int, int]]]:
         bbox = (self._scanner_window_size[0], self._scanner_window_size[1], self._scanner_window_size[0] + self._scanner_window_size[2], self._scanner_window_size[1] + self._scanner_window_size[3])
@@ -168,7 +169,7 @@ class ImageScanner:
             heat_map = cv2.matchTemplate(screen, self._items_map.get_scan_image(item), cv2.TM_CCOEFF_NORMED)
             _, confidence, _, (x, y) = cv2.minMaxLoc(heat_map)
             print(f'Best match for {item}: x={x}, y={y} = {confidence}')
-            findings = np.where(heat_map >= 0.90)
+            findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
                 results[item] = [(findings[1][i], findings[0][i]) for i in range(len(findings[0]))]
         print(results)
@@ -181,6 +182,14 @@ class ImageScanner:
     @scanner_window_size.setter
     def scanner_window_size(self, value: Tuple[int, int, int, int]) -> None:
         self._scanner_window_size = value
+
+    @property
+    def confidence_threshold(self) -> float:
+        return self._confidence_threshold
+
+    @confidence_threshold.setter
+    def confidence_threshold(self, value) -> None:
+        self._confidence_threshold = value
 
     @property
     def screen_width(self) -> int:
@@ -341,8 +350,13 @@ class Settings:
         self._scale_entry.grid(row=1, column=0)
         tk.Button(self._window, text='Set image scale', command=self._update_scale).grid(row=1, column=1)
 
+        v = tk.DoubleVar(self._window, value=self._image_scanner.confidence_threshold)
+        self._confidence_threshold_entry = tk.Entry(self._window, textvariable=v)
+        self._confidence_threshold_entry.grid(row=2, column=0)
+        tk.Button(self._window, text='Set confidence threshold', command=self._update_confidence_threshold).grid(row=2, column=1)
+
         self._display_inventory_items = False
-        tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items).grid(row=2, column=0)
+        tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items).grid(row=3, column=0)
 
     def _close(self) -> None:
         self._window.destroy()
@@ -367,6 +381,14 @@ class Settings:
             print('Unable to parse image scale parameter')
             return
         self._items_map.scale = new_scale
+
+    def _update_confidence_threshold(self) -> None:
+        try:
+            new_threshold = float(self._confidence_threshold_entry.get())
+        except ValueError:
+            print('Unable to parse confidence threshold parameter')
+            return
+        self._image_scanner.confidence_threshold = new_threshold
 
     def _update_display_inventory_items(self) -> None:
         self._display_inventory_items = not self._display_inventory_items
