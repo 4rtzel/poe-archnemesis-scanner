@@ -1,4 +1,5 @@
 import sys
+from configparser import ConfigParser
 import tkinter as tk
 from typing import Callable, Any, Tuple, List, Dict
 
@@ -276,7 +277,7 @@ class UIOverlay:
         last_column = 0
         if self._settings.should_display_inventory_items():
             last_column = self._show_inventory_list(results)
-        self._show_available_recipes_list(available_recipes, last_column)
+        self._show_available_recipes_list(available_recipes, last_column + 2)
 
     def _show_inventory_list(self, results: Dict[str, List[Tuple[int, int]]]) -> int:
         row = 0
@@ -289,9 +290,8 @@ class UIOverlay:
         return column
 
 
-    def _show_available_recipes_list(self, available_recipes: List[Tuple[str, List[Tuple[int, int]], bool]], start_column: int) -> None:
+    def _show_available_recipes_list(self, available_recipes: List[Tuple[str, List[Tuple[int, int]], bool]], column: int) -> None:
         row = 0
-        column = start_column
 
         for item, inventory_items, exists_in_inventory in available_recipes:
             if exists_in_inventory:
@@ -337,7 +337,23 @@ class Settings:
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
-        self._display_inventory_items = False
+
+        self._config = ConfigParser()
+        self._config_file = 'settings.ini'
+
+        self._config.read(self._config_file)
+        if 'settings' not in self._config:
+            self._config.add_section('settings')
+        s = self._config['settings']
+
+        scanner_window_size = s.get('scanner_window')
+        if scanner_window_size is not None:
+            self._image_scanner.scanner_window_size = tuple(map(int, scanner_window_size.replace('(', '').replace(')', '').replace(',', '').split()))
+        self._items_map.scale = float(s.get('image_scale', self._items_map.scale))
+        self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
+        b = s.get('display_inventory_items')
+        self._display_inventory_items = True if b is not None and b == 'True' else False
+
 
     def show(self) -> None:
         self._window = tk.Toplevel()
@@ -361,10 +377,21 @@ class Settings:
         self._confidence_threshold_entry.grid(row=2, column=0)
         tk.Button(self._window, text='Set confidence threshold', command=self._update_confidence_threshold).grid(row=2, column=1)
 
-        tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items).grid(row=3, column=0)
+        c = tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items)
+        c.grid(row=3, column=0)
+        if self._display_inventory_items:
+            c.select()
 
     def _close(self) -> None:
         self._window.destroy()
+
+    def _save_config(self) -> None:
+        self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
+        self._config['settings']['image_scale'] = str(self._items_map.scale)
+        self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
+        self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
+        with open(self._config_file, 'w') as f:
+            self._config.write(f)
 
     def _update_scanner_window(self) -> None:
         try:
@@ -377,6 +404,7 @@ class Settings:
         scanner_window_to_show.geometry(f'{width}x{height}+{x}+{y}')
         self._image_scanner.scanner_window_size = (x, y, width, height)
         scanner_window_to_show.after(200, scanner_window_to_show.destroy)
+        self._save_config()
 
     def _update_scale(self) -> None:
         try:
@@ -385,6 +413,7 @@ class Settings:
             print('Unable to parse image scale parameter')
             return
         self._items_map.scale = new_scale
+        self._save_config()
 
     def _update_confidence_threshold(self) -> None:
         try:
@@ -393,9 +422,11 @@ class Settings:
             print('Unable to parse confidence threshold parameter')
             return
         self._image_scanner.confidence_threshold = new_threshold
+        self._save_config()
 
     def _update_display_inventory_items(self) -> None:
         self._display_inventory_items = not self._display_inventory_items
+        self._save_config()
 
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
