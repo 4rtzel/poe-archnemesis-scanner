@@ -211,7 +211,8 @@ class UIOverlay:
         self._scan_results_window = None
         self._highlight_windows_to_show = list()
 
-        self._settings = Settings(root, items_map, image_scanner, self._create_controls)
+        self._settings = Settings(root, items_map, image_scanner)
+        self._create_controls()
 
         self._root.configure(bg='')
         self._root.overrideredirect(True)
@@ -233,10 +234,14 @@ class UIOverlay:
         l.bind('<Button-1>', sys.exit)
         l.grid(row=0, column=0)
 
+        settings = tk.Button(self._root, text='Settings', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
+        settings.bind('<Button-1>', lambda _: self._settings.show())
+        settings.grid(row=0, column=1)
+
         self._scan_label_text = tk.StringVar(self._root, value='Scan')
         self._scan_label = tk.Button(self._root, textvariable=self._scan_label_text, fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
         self._scan_label.bind("<Button-1>", self._scan)
-        self._scan_label.grid(row=0, column=1)
+        self._scan_label.grid(row=0, column=2)
 
     def _scan(self, _) -> None:
         self._scan_label_text.set('Scanning...')
@@ -328,12 +333,13 @@ class UIOverlay:
 
 
 class Settings:
-    def __init__(self, root, items_map, image_scanner, on_close):
+    def __init__(self, root, items_map, image_scanner):
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
-        self._on_close = on_close
+        self._display_inventory_items = False
 
+    def show(self) -> None:
         self._window = tk.Toplevel()
 
         self._window.geometry('+100+200')
@@ -355,12 +361,10 @@ class Settings:
         self._confidence_threshold_entry.grid(row=2, column=0)
         tk.Button(self._window, text='Set confidence threshold', command=self._update_confidence_threshold).grid(row=2, column=1)
 
-        self._display_inventory_items = False
         tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items).grid(row=3, column=0)
 
     def _close(self) -> None:
         self._window.destroy()
-        self._on_close()
 
     def _update_scanner_window(self) -> None:
         try:
