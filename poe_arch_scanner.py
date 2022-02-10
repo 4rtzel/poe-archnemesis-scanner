@@ -318,8 +318,8 @@ class UIOverlay:
             x_offset, y_offset, _, _ = self._image_scanner.scanner_window_size
             x += x_offset
             y += y_offset
-            width = self._items_map.image_size[0] - 20
-            height = self._items_map.image_size[1] - 20
+            width = int(self._items_map.image_size[0] * 0.7)
+            height = int(self._items_map.image_size[1] * 0.7)
             w = UIOverlay.create_toplevel_window(bg=color)
             w.geometry(f'{width}x{height}+{x}+{y}')
             self._highlight_windows_to_show.append(w)
