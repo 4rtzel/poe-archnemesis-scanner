@@ -7,7 +7,7 @@ Tool for Path of Exile game to automatically scan Archemesis inventory and displ
 
 When you first start the program, a small settings window will pop up that will look like this:
 
-![settings_window.png]()
+![settings_window](docs/settings_window.png)
 
 Here you can adjust some parameters to improve searching or change the display settings.
 
@@ -24,7 +24,7 @@ Here you can adjust some parameters to improve searching or change the display s
 ### Controls
 Once you close the setting window, two small buttons will pop up in the top left corner of your screen.
 
-![controls.png]()
+![controls](docs/controls.png)
 
 * '[X]' button just closes the program.
 * 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
@@ -32,17 +32,17 @@ Once you close the setting window, two small buttons will pop up in the top left
 ### Scan results
 The scan result will be displayed at the top of the screen like that:
 
-![scan_results.png]()
+![scan_results](docs/scan_results.png)
 
 It shows you all available recipes that you can create right now. If the text is green, then that means you already have such item in the inventory. If the text is orange, then this item doesn't exist in your inventory.
 
 You could then hover over any of the recipes to highlight the items in your inventory that could be combined to create it:
 
-![scan_results_highlight.png]()
+![scan_results_highlight](docs/scan_results_highlight.png)
 
 If you checked 'Display inventory items' box, then your scan results will also include a list of all of your items in inventory (colored in white):
 
-![scan_results_display_inventory_items.png]()
+![scan_results_display_inventory_items](docs/scan_results_display_inventory_items.png)
 
 Again, hover over any items to display them in your inventory.
 
