@@ -3,13 +3,20 @@ Tool for Path of Exile game to automatically scan Archemesis inventory and displ
 
 ## Features
 
+### Controls
+When you start the program three small buttons will pop up in the top left corner of your screen.
+
+![controls](docs/controls.png)
+
+* '[X]' button just closes the program.
+* 'Settings' button open settings window (see below).
+* 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
+
 ### Settings
 
-When you first start the program, a small settings window will pop up that will look like this:
+The setting window allows you to adjust some parameters to improve the searching efficiency or change the display settings:
 
 ![settings_window](docs/settings_window.png)
-
-Here you can adjust some parameters to improve searching or change the display settings.
 
 * 'Set scanner window' button modifies the scanning area. The format for the window position is the following `x, y, width, height`. `x` and `y` are the horizontal and vertical offset from the top left corner of the screen. `width` and `height` are horizontal and vertical size of the window.
 
@@ -19,15 +26,11 @@ Here you can adjust some parameters to improve searching or change the display s
 
   The default calculated automatically based on the screen resolution and should work for most of the people. However, if you have some non-standard resolution, the search algorithm may not work properly, so you'll need to adjust this parameter manually.
   
+* 'Set confidence threshold' button sets the threshold used by the search algorithm to filter the results. If the algorithm was able to find an area with confidence value higher than the confidence threshold then it will treat it as a match. The default value is 0.94 (or 94%) and should work in most of the cases.
+
 * 'Display inventory items' checkbox turns additional display setting for scan window. The scan results will also include a list of all of your archnemesis items in the inventory.
 
-### Controls
-Once you close the setting window, two small buttons will pop up in the top left corner of your screen.
-
-![controls](docs/controls.png)
-
-* '[X]' button just closes the program.
-* 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
+The settings are persistent and will be saved/loaded from settings.ini file.
 
 ### Scan results
 The scan result will be displayed at the top of the screen like that:
@@ -47,7 +50,6 @@ If you checked 'Display inventory items' box, then your scan results will also i
 Again, hover over any items to display them in your inventory.
 
 ## Installation
-
 
 ### Standalone
 You could download a standalone version from release page: https://github.com/4rtzel/poe-archnemesis-scanner/releases. The package was created using `pyinstaller`.
