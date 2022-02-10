@@ -298,7 +298,7 @@ class UIOverlay:
             row = 0
         return (row, column)
 
-    def _highlight_items_in_inventory(self, inventory_items: Tuple[int, int], color: str) -> None:
+    def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
         for (x, y) in inventory_items:
             x_offset, y_offset, _, _ = self._image_scanner.scanner_window_size
@@ -380,12 +380,12 @@ def calculate_default_scale(screen_width: int, screen_height: int) -> float:
     TODO: validate the math for non 16:9 resolutions (e.g. ultrawide monitors)
     """
 
-    # Assume that all source images have 70x70 size
-    source_image_height = 70.0
+    # Assume that all source images have 78x78 size
+    source_image_height = 78.0
 
     # Take 0.90 as a golden standard for 2560x1440 resolution and calculate
     # scales for other resolutions based on that
-    constant = 1440.0 / (source_image_height * 0.90)
+    constant = 1440.0 / (source_image_height * 0.91)
     scale = screen_height / (source_image_height * constant)
 
     return scale
