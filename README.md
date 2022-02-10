@@ -48,7 +48,12 @@ Again, hover over any items to display them in your inventory.
 
 ## Installation
 
-There is no standalone version (yet), so you'll need to install Python and all project dependencies. Python could be installed from Microsoft Store and from the main site: https://www.python.org/downloads/ (doesn't include `pip`, so you'll have to install it separately).
+
+### Standalone
+You could download a standalone version from release page: https://github.com/4rtzel/poe-archnemesis-scanner/releases. The package was created using `pyinstaller`.
+
+### Manual
+You'll need to install Python and all project dependencies. Python could be installed from Microsoft Store and from the main site: https://www.python.org/downloads/ (doesn't include `pip`, so you'll have to install it separately).
 
 Once the Python and pip are installed, run this command from the project directory to install all project dependencies:
 
@@ -61,8 +66,6 @@ and then start the program
 ```cmd
 python.exe poe_arch_scanner.py
 ```
-
-I hope to create a standalone version soon.
 
 ## Known Issues
 
