@@ -12,6 +12,8 @@ When you start the program three small buttons will pop up in the top left corne
 * 'Settings' button open settings window (see below).
 * 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
 
+You could also hold the right mouse button to drag the controls around.
+
 ### Settings
 
 The setting window allows you to adjust some parameters to improve the searching efficiency or change the display settings:
@@ -29,6 +31,8 @@ The setting window allows you to adjust some parameters to improve the searching
 * 'Set confidence threshold' button sets the threshold used by the search algorithm to filter the results. If the algorithm was able to find an area with confidence value higher than the confidence threshold then it will treat it as a match. The default value is 0.94 (or 94%) and should work in most of the cases.
 
 * 'Display inventory items' checkbox turns additional display setting for scan window. The scan results will also include a list of all of your archnemesis items in the inventory.
+
+* 'Display unavailable recipes' checkbox turns the display of all possible recipes even if you can't currently build them. The unavailable recipes will be indicated by the white color (light green if you already have it in your inventory).
 
 The settings are persistent and will be saved/loaded from settings.ini file.
 
@@ -48,6 +52,16 @@ If you checked 'Display inventory items' box, then your scan results will also i
 ![scan_results_display_inventory_items](docs/scan_results_display_inventory_items.png)
 
 Again, hover over any items to display them in your inventory.
+
+If you checked 'Display unavailable recipes' box, then your scan results will also include the recipes that you cannot complete right now. This is useful for planning the next step especially with the next feature.
+
+If you click at any recipe icon, then the recipe tree will open:
+
+![docs/scan_results_recipe_tree](docs/scan_results_recipe_tree.png)
+
+If the icon is highlighted in green, then that means you have this item in your inventory. You could hover of highlighted items to display them in your inventory. The tree is also interactable. You could click at other nodes to zoom in.
+
+Both recipe list and recipe tree could be also moved with the right mouse button held.
 
 ## Installation
 
