@@ -1,5 +1,9 @@
 import sys
+from dataclasses import dataclass
 from configparser import ConfigParser
+
+import win32gui
+
 import tkinter as tk
 from typing import Callable, Any, Tuple, List, Dict
 
@@ -146,20 +150,37 @@ class ArchnemesisItemsMap:
     def scale(self, scale: float) -> None:
         self._update_images(scale)
 
+@dataclass
+class PoeWindowInfo:
+    x: int = 0
+    y: int = 0
+    width: int = 0
+    height: int = 0
+    client_width: int = 0
+    client_height: int = 0
+    title_bar_height: int = 0
 
 class ImageScanner:
     """
     Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
     """
-    def __init__(self, screen_width: int, screen_height: int, items_map: ArchnemesisItemsMap):
-        self._screen_width = screen_width
-        self._screen_height = screen_height
-        self._scanner_window_size = (0, int(self._screen_height / 4), int(self._screen_width / 3), int(self._screen_height * 2 / 3))
+    def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
+        self._scanner_window_size = (
+            info.x,
+            info.y + int(info.client_height / 4),
+            int(info.client_width / 3),
+            int(info.client_height * 2 / 3)
+        )
         self._items_map = items_map
         self._confidence_threshold = 0.94
 
     def scan(self) -> Dict[str, List[Tuple[int, int]]]:
-        bbox = (self._scanner_window_size[0], self._scanner_window_size[1], self._scanner_window_size[0] + self._scanner_window_size[2], self._scanner_window_size[1] + self._scanner_window_size[3])
+        bbox = (
+            self._scanner_window_size[0],
+            self._scanner_window_size[1],
+            self._scanner_window_size[0] + self._scanner_window_size[2],
+            self._scanner_window_size[1] + self._scanner_window_size[3]
+        )
         screen = ImageGrab.grab(bbox=bbox)
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
@@ -192,20 +213,12 @@ class ImageScanner:
     def confidence_threshold(self, value) -> None:
         self._confidence_threshold = value
 
-    @property
-    def screen_width(self) -> int:
-        return self._screen_width
-
-    @property
-    def screen_height(self) -> int:
-        return self._screen_height
-
-
 class UIOverlay:
     """
     Overlay window using tkinter '-topmost' property
     """
-    def __init__(self, root, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
+    def __init__(self, root, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
+        self._window_info = info
         self._items_map = items_map
         self._image_scanner = image_scanner
         self._root = root
@@ -218,8 +231,8 @@ class UIOverlay:
 
         self._root.configure(bg='')
         self._root.overrideredirect(True)
-        self._root.geometry("+5+5")
-        self._root.wm_attributes("-topmost", True)
+        self._root.geometry(f'+{info.x + 5}+{info.y + info.title_bar_height + 5}')
+        self._root.wm_attributes('-topmost', True)
 
     @staticmethod
     def create_toplevel_window(bg=''):
@@ -228,7 +241,7 @@ class UIOverlay:
         # Hide window outline/controls
         w.overrideredirect(True)
         # Make sure the window is always on top
-        w.wm_attributes("-topmost", True)
+        w.wm_attributes('-topmost', True)
         return w
 
     def _create_controls(self) -> None:
@@ -283,7 +296,8 @@ class UIOverlay:
         self._scan_results_window = UIOverlay.create_toplevel_window()
         x, y = self._scan_results_window_saved_position
         if x == -1:
-            x = int(self._image_scanner.screen_width / 3)
+            x = self._window_info.x + int(self._window_info.client_width / 3)
+            y = self._window_info.y + self._window_info.title_bar_height
         self._scan_results_window.geometry(f'+{x}+{y}')
 
         last_column = 0
@@ -447,8 +461,21 @@ class Settings:
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
 
+def get_poe_window_info() -> PoeWindowInfo:
+    info = PoeWindowInfo()
+    hwnd = win32gui.FindWindow(None, 'Path of Exile')
+    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
+    info.x = x0
+    info.y = y0
+    info.width = x1 - x0
+    info.height = y1 - y0
+    x0, y0, x1, y1 = win32gui.GetClientRect(hwnd)
+    info.client_width = x1 - x0
+    info.client_height = y1 - y0
+    info.title_bar_height = info.height - info.client_height
+    return info
 
-def calculate_default_scale(screen_width: int, screen_height: int) -> float:
+def calculate_default_scale(info: PoeWindowInfo) -> float:
     """
     TODO: validate the math for non 16:9 resolutions (e.g. ultrawide monitors)
     """
@@ -456,23 +483,21 @@ def calculate_default_scale(screen_width: int, screen_height: int) -> float:
     # Assume that all source images have 78x78 size
     source_image_height = 78.0
 
-    # Take 0.90 as a golden standard for 2560x1440 resolution and calculate
+    # Take 0.91 as a golden standard for 2560x1440 resolution and calculate
     # scales for other resolutions based on that
     constant = 1440.0 / (source_image_height * 0.91)
-    scale = screen_height / (source_image_height * constant)
+    scale = info.client_height / (source_image_height * constant)
 
     return scale
 
 # Create root as early as possible to initialize some modules (e.g. ImageTk)
 root = tk.Tk()
 
-# There are probably better ways to get screen resoultions but I'm lazy
-screen = ImageGrab.grab()
-SCREEN_WIDTH, SCREEN_HEIGHT = screen.size
+info = get_poe_window_info()
 
-items_map = ArchnemesisItemsMap(calculate_default_scale(SCREEN_WIDTH, SCREEN_HEIGHT))
+items_map = ArchnemesisItemsMap(calculate_default_scale(info))
 
-image_scanner = ImageScanner(SCREEN_WIDTH, SCREEN_HEIGHT, items_map)
+image_scanner = ImageScanner(info, items_map)
 
-overlay = UIOverlay(root, items_map, image_scanner)
+overlay = UIOverlay(root, info, items_map, image_scanner)
 overlay.run()
