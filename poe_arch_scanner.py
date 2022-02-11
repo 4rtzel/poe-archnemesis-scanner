@@ -211,6 +211,7 @@ class UIOverlay:
         self._root = root
         self._scan_results_window = None
         self._highlight_windows_to_show = list()
+        self._scan_results_window_saved_position = (-1, 0)
 
         self._settings = Settings(root, items_map, image_scanner)
         self._create_controls()
@@ -233,16 +234,25 @@ class UIOverlay:
     def _create_controls(self) -> None:
         l = tk.Button(self._root, text='[X]', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
         l.bind('<Button-1>', sys.exit)
+        l.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         l.grid(row=0, column=0)
 
         settings = tk.Button(self._root, text='Settings', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
         settings.bind('<Button-1>', lambda _: self._settings.show())
+        settings.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         settings.grid(row=0, column=1)
 
         self._scan_label_text = tk.StringVar(self._root, value='Scan')
         self._scan_label = tk.Button(self._root, textvariable=self._scan_label_text, fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
         self._scan_label.bind("<Button-1>", self._scan)
+        self._scan_label.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         self._scan_label.grid(row=0, column=2)
+
+    def _drag(self, window, offset_x: int, offset_y: int, event) -> Tuple[int, int]:
+        x = offset_x + event.x + window.winfo_x()
+        y = offset_y + event.y + window.winfo_y()
+        window.geometry(f'+{x}+{y}')
+        return (x, y)
 
     def _scan(self, _) -> None:
         self._scan_label_text.set('Scanning...')
@@ -271,8 +281,10 @@ class UIOverlay:
 
     def _show_scan_results(self, results: Dict[str, List[Tuple[int, int]]], available_recipes: List[Tuple[str, List[Tuple[int, int]], bool]]) -> None:
         self._scan_results_window = UIOverlay.create_toplevel_window()
-        x = int(self._image_scanner.screen_width / 3)
-        self._scan_results_window.geometry(f'+{x}+0')
+        x, y = self._scan_results_window_saved_position
+        if x == -1:
+            x = int(self._image_scanner.screen_width / 3)
+        self._scan_results_window.geometry(f'+{x}+{y}')
 
         last_column = 0
         if self._settings.should_display_inventory_items():
@@ -304,6 +316,7 @@ class UIOverlay:
         image = tk.Label(self._scan_results_window, image=self._items_map.get_display_small_image(item), bg=COLOR_BG, pady=5)
         image.bind('<Enter>', lambda _, arg=inventory_items, color=highlight_color: self._highlight_items_in_inventory(arg, color))
         image.bind('<Leave>', self._clear_highlights)
+        image.bind('<B3-Motion>', self._scan_results_window_drag_and_save)
         image.grid(row=row, column=column)
         tk.Label(self._scan_results_window, text=label_text, font=FONT_BIG, fg=highlight_color, bg=COLOR_BG).grid(row=row, column=column + 1, sticky='w', padx=5)
         row += 1
@@ -311,6 +324,9 @@ class UIOverlay:
             column += 2
             row = 0
         return (row, column)
+
+    def _scan_results_window_drag_and_save(self, event) -> None:
+        self._scan_results_window_saved_position = self._drag(self._scan_results_window, -5, -5, event)
 
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
