@@ -408,7 +408,7 @@ class Settings:
         tk.Button(self._window, text='Set confidence threshold', command=self._update_confidence_threshold).grid(row=2, column=1)
 
         c = tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items)
-        c.grid(row=3, column=0)
+        c.grid(row=3, column=0, columnspan=2)
         if self._display_inventory_items:
             c.select()
 
