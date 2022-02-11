@@ -213,12 +213,21 @@ class ImageScanner:
         results = dict()
 
         for item in self._items_map.items():
-            heat_map = cv2.matchTemplate(screen, self._items_map.get_scan_image(item), cv2.TM_CCOEFF_NORMED)
+            template = self._items_map.get_scan_image(item)
+            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
             _, confidence, _, (x, y) = cv2.minMaxLoc(heat_map)
             print(f'Best match for {item}: x={x}, y={y} confidence={confidence}', 'too low' if confidence < self._confidence_threshold else '')
             findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
-                results[item] = [(findings[1][i], findings[0][i]) for i in range(len(findings[0]))]
+                rectangles = []
+                ht, wt = template.shape[0], template.shape[1]
+                for (x, y) in zip(findings[1], findings[0]):
+                     # Add every box to the list twice in order to retain single (non-overlapping) boxes
+                    rectangles.append([int(x), int(y), int(wt), int(ht)])
+                    rectangles.append([int(x), int(y), int(wt), int(ht)])
+
+                rectangles, _ = cv2.groupRectangles(rectangles, 1, 0.1)
+                results[item] = [(rect[0], rect[1]) for rect in rectangles]
         print(results)
         return results
 
