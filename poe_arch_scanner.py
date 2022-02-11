@@ -190,7 +190,7 @@ class ImageScanner:
         for item in self._items_map.items():
             heat_map = cv2.matchTemplate(screen, self._items_map.get_scan_image(item), cv2.TM_CCOEFF_NORMED)
             _, confidence, _, (x, y) = cv2.minMaxLoc(heat_map)
-            print(f'Best match for {item}: x={x}, y={y} = {confidence}')
+            print(f'Best match for {item}: x={x}, y={y} confidence={confidence}', 'too low' if confidence < self._confidence_threshold else '')
             findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
                 results[item] = [(findings[1][i], findings[0][i]) for i in range(len(findings[0]))]
