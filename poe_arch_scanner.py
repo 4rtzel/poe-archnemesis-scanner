@@ -14,9 +14,15 @@ from PIL import ImageTk, Image, ImageGrab
 COLOR_BG = 'grey19'
 COLOR_FG_WHITE = 'snow'
 COLOR_FG_GREEN = 'green3'
+COLOR_FG_LIGHT_GREEN = 'DarkOliveGreen3'
 COLOR_FG_ORANGE = 'orange2'
 FONT_BIG = ('Consolas', '14')
 FONT_SMALL = ('Consolas', '9')
+
+@dataclass
+class RecipeItemNode:
+    item: str
+    components: list
 
 class ArchnemesisItemsMap:
     """
@@ -90,6 +96,7 @@ class ArchnemesisItemsMap:
             ('Vampiric', [])
         ]
         self._images = dict()
+        self._small_image_size = 30
         self._update_images(scale)
 
     def _update_images(self, scale):
@@ -101,7 +108,7 @@ class ArchnemesisItemsMap:
             self._images[item]['scan-image'] = self._create_scan_image(image)
             # Convert the image to Tk image because we're going to display it
             self._images[item]['display-image'] = ImageTk.PhotoImage(image=image)
-            image = image.resize((30, 30))
+            image = image.resize((self._small_image_size, self._small_image_size))
             self._images[item]['display-small-image'] = ImageTk.PhotoImage(image=image)
 
     def _load_image(self, item: str, scale: float):
@@ -138,6 +145,20 @@ class ArchnemesisItemsMap:
             if recipe:
                 yield (item, recipe)
 
+    def get_subtree_for(self, item):
+        tree = RecipeItemNode(item, [])
+        nodes = [tree]
+        while len(nodes) > 0:
+            node = nodes.pop(0)
+            children = self._get_item_components(node.item)
+            if len(children) > 0:
+                node.components = [RecipeItemNode(c, []) for c in children]
+                nodes.extend(node.components)
+        return tree
+
+    def _get_item_components(self, item) -> List[str]:
+        return next(l for x, l in self._arch_items if x == item)
+
     @property
     def image_size(self):
         return self._image_size
@@ -149,6 +170,10 @@ class ArchnemesisItemsMap:
     @scale.setter
     def scale(self, scale: float) -> None:
         self._update_images(scale)
+
+    @property
+    def small_image_size(self):
+        return self._small_image_size
 
 @dataclass
 class PoeWindowInfo:
@@ -223,6 +248,8 @@ class UIOverlay:
         self._image_scanner = image_scanner
         self._root = root
         self._scan_results_window = None
+        self._recipe_browser_window = None
+        self._tooltip_window = None
         self._highlight_windows_to_show = list()
         self._scan_results_window_saved_position = (-1, 0)
 
@@ -272,13 +299,13 @@ class UIOverlay:
         self._root.update()
         results = self._image_scanner.scan()
         if len(results) > 0:
-            available_recipes = list()
+            recipes = list()
             for item, recipe in self._items_map.recipes():
                 screen_items = [results.get(x) for x in recipe]
-                if all(screen_items):
-                    available_recipes.append((item, [x[0] for x in screen_items], item in results))
+                if all(screen_items) or self._settings.should_display_unavailable_recipes():
+                    recipes.append((item, [x[0] for x in screen_items if x is not None], item in results, all(screen_items)))
 
-            self._show_scan_results(results, available_recipes)
+            self._show_scan_results(results, recipes)
 
             self._scan_label_text.set('Hide')
             self._scan_label.bind('<Button-1>', self._hide)
@@ -288,11 +315,15 @@ class UIOverlay:
     def _hide(self, _) -> None:
         if self._scan_results_window is not None:
             self._scan_results_window.destroy()
+        if self._recipe_browser_window is not None:
+            self._recipe_browser_window.destroy()
+        if self._tooltip_window is not None:
+            self._tooltip_window.destroy()
         self._clear_highlights(None)
         self._scan_label_text.set('Scan')
         self._scan_label.bind('<Button-1>', self._scan)
 
-    def _show_scan_results(self, results: Dict[str, List[Tuple[int, int]]], available_recipes: List[Tuple[str, List[Tuple[int, int]], bool]]) -> None:
+    def _show_scan_results(self, results: Dict[str, List[Tuple[int, int]]], recipes: List[Tuple[str, List[Tuple[int, int]], bool, bool]]) -> None:
         self._scan_results_window = UIOverlay.create_toplevel_window()
         x, y = self._scan_results_window_saved_position
         if x == -1:
@@ -303,7 +334,7 @@ class UIOverlay:
         last_column = 0
         if self._settings.should_display_inventory_items():
             last_column = self._show_inventory_list(results)
-        self._show_available_recipes_list(available_recipes, last_column + 2)
+        self._show_recipes_list(results, recipes, last_column + 2)
 
     def _show_inventory_list(self, results: Dict[str, List[Tuple[int, int]]]) -> int:
         row = 0
@@ -312,24 +343,31 @@ class UIOverlay:
         for item in self._items_map.items():
             inventory_items = results.get(item)
             if inventory_items is not None:
-                row, column = self._show_image_and_label(item, inventory_items, COLOR_FG_WHITE, f'x{len(inventory_items)} {item}', row, column)
+                row, column = self._show_image_and_label(item, results, inventory_items, COLOR_FG_WHITE, f'x{len(inventory_items)} {item}', True, row, column)
         return column
 
-
-    def _show_available_recipes_list(self, available_recipes: List[Tuple[str, List[Tuple[int, int]], bool]], column: int) -> None:
+    def _show_recipes_list(self, results: Dict[str, List[Tuple[int, int]]], recipes: List[Tuple[str, List[Tuple[int, int]], bool, bool]], column: int) -> None:
         row = 0
 
-        for item, inventory_items, exists_in_inventory in available_recipes:
+        for item, inventory_items, exists_in_inventory, available in recipes:
             if exists_in_inventory:
-                fg = COLOR_FG_GREEN
+                if available:
+                    fg = COLOR_FG_GREEN
+                else:
+                    fg = COLOR_FG_LIGHT_GREEN
             else:
-                fg = COLOR_FG_ORANGE
-            row, column = self._show_image_and_label(item, inventory_items, fg, item, row, column)
+                if available:
+                    fg = COLOR_FG_ORANGE
+                else:
+                    fg = COLOR_FG_WHITE
+            row, column = self._show_image_and_label(item, results, inventory_items, fg, item, available, row, column)
 
-    def _show_image_and_label(self, item, inventory_items: Tuple[int, int], highlight_color: str, label_text: str, row: int, column: int) -> Tuple[int, int]:
+    def _show_image_and_label(self, item: str, results: Dict[str, List[Tuple[int, int]]], inventory_items: Tuple[int, int], highlight_color: str, label_text: str, highlight, row: int, column: int) -> Tuple[int, int]:
         image = tk.Label(self._scan_results_window, image=self._items_map.get_display_small_image(item), bg=COLOR_BG, pady=5)
-        image.bind('<Enter>', lambda _, arg=inventory_items, color=highlight_color: self._highlight_items_in_inventory(arg, color))
-        image.bind('<Leave>', self._clear_highlights)
+        if highlight:
+            image.bind('<Enter>', lambda _, arg=inventory_items, color=highlight_color: self._highlight_items_in_inventory(arg, color))
+            image.bind('<Leave>', self._clear_highlights)
+        image.bind('<Button-1>', lambda _, arg1=item, arg2=results: self._show_recipe_browser_tree(arg1, arg2))
         image.bind('<B3-Motion>', self._scan_results_window_drag_and_save)
         image.grid(row=row, column=column)
         tk.Label(self._scan_results_window, text=label_text, font=FONT_BIG, fg=highlight_color, bg=COLOR_BG).grid(row=row, column=column + 1, sticky='w', padx=5)
@@ -341,6 +379,36 @@ class UIOverlay:
 
     def _scan_results_window_drag_and_save(self, event) -> None:
         self._scan_results_window_saved_position = self._drag(self._scan_results_window, -5, -5, event)
+
+    def _show_recipe_browser_tree(self, item: str, results: Dict[str, List[Tuple[int, int]]]) -> None:
+        if self._recipe_browser_window is not None:
+            self._recipe_browser_window.destroy()
+        self._recipe_browser_window = UIOverlay.create_toplevel_window()
+        self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
+
+        tree = self._items_map.get_subtree_for(item)
+        def draw_tree(node, row, column):
+            children_column = column
+            for c in node.components:
+                children_column = draw_tree(c, row + 2, children_column)
+            columnspan = max(1, children_column - column)
+            if node.item in results:
+                bg = COLOR_FG_GREEN
+            else:
+                bg = COLOR_BG
+            l = tk.Label(self._recipe_browser_window, image=self._items_map.get_display_small_image(node.item), bg=bg, relief=tk.SUNKEN)
+            l.bind('<Button-1>', lambda _, arg1=node.item, arg2=results: self._show_recipe_browser_tree(arg1, arg2))
+            l.bind('<B3-Motion>', lambda event: self._drag(self._recipe_browser_window, -5, -5, event))
+            l.bind('<Enter>', lambda _, arg1=self._recipe_browser_window, arg2=results.get(node.item), arg3=node.item: self._create_tooltip_and_highlight(arg1, arg2, arg3))
+            l.bind('<Leave>', self._destroy_tooltip_and_clear_highlights)
+            l.grid(row=row, column=column, columnspan=columnspan)
+            if len(node.components) > 0:
+                f = tk.Frame(self._recipe_browser_window, bg=COLOR_BG, width=(self._items_map.small_image_size + 4) * columnspan, height=3)
+                f.grid(row=row + 1, column=column, columnspan=columnspan)
+            return children_column + 1
+        total_columns = draw_tree(tree, 0, 0)
+        for c in range(total_columns):
+            self._recipe_browser_window.grid_columnconfigure(c, minsize=self._items_map.small_image_size)
 
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
@@ -357,6 +425,21 @@ class UIOverlay:
     def _clear_highlights(self, _) -> None:
         for w in self._highlight_windows_to_show:
             w.destroy()
+
+    def _create_tooltip_and_highlight(self, window, inventory_items, text) -> None:
+        if self._tooltip_window is not None:
+            self._tooltip_window.destroy()
+        self._tooltip_window = UIOverlay.create_toplevel_window()
+        self._tooltip_window.geometry(f'+{window.winfo_x()}+{window.winfo_y() - 20}')
+        tk.Label(self._tooltip_window, text=text, font=FONT_BIG, bg=COLOR_BG, fg=COLOR_FG_GREEN).pack()
+
+        if inventory_items is not None:
+            self._highlight_items_in_inventory(inventory_items, COLOR_FG_GREEN)
+
+    def _destroy_tooltip_and_clear_highlights(self, _) -> None:
+        if self._tooltip_window is not None:
+            self._tooltip_window.destroy()
+        self._clear_highlights(None)
 
     def run(self) -> None:
         self._root.mainloop()
@@ -383,6 +466,8 @@ class Settings:
         self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
         b = s.get('display_inventory_items')
         self._display_inventory_items = True if b is not None and b == 'True' else False
+        b = s.get('display_unavailable_recipes')
+        self._display_unavailable_recipes = True if b is not None and b == 'True' else False
 
 
     def show(self) -> None:
@@ -412,6 +497,11 @@ class Settings:
         if self._display_inventory_items:
             c.select()
 
+        c = tk.Checkbutton(self._window, text='Display unavailable recipes', command=self._update_display_unavailable_recipes)
+        c.grid(row=4, column=0, columnspan=2)
+        if self._display_unavailable_recipes:
+            c.select()
+
     def _close(self) -> None:
         self._window.destroy()
 
@@ -420,6 +510,7 @@ class Settings:
         self._config['settings']['image_scale'] = str(self._items_map.scale)
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
+        self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -458,8 +549,15 @@ class Settings:
         self._display_inventory_items = not self._display_inventory_items
         self._save_config()
 
+    def _update_display_unavailable_recipes(self) -> None:
+        self._display_unavailable_recipes = not self._display_unavailable_recipes
+        self._save_config()
+
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
+
+    def should_display_unavailable_recipes(self) -> bool:
+        return self._display_unavailable_recipes
 
 def get_poe_window_info() -> PoeWindowInfo:
     info = PoeWindowInfo()
