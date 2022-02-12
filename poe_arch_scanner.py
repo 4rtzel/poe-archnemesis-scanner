@@ -397,7 +397,8 @@ class UIOverlay:
         self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
 
         tree = self._items_map.get_subtree_for(item)
-        self._copy_tree_items_to_clipboard(tree)
+        if self._settings.should_copy_recipe_to_clipboard():
+            self._copy_tree_items_to_clipboard(tree)
 
         def draw_tree(node, row, column):
             children_column = column
@@ -491,6 +492,8 @@ class Settings:
         self._display_inventory_items = True if b is not None and b == 'True' else False
         b = s.get('display_unavailable_recipes')
         self._display_unavailable_recipes = True if b is not None and b == 'True' else False
+        b = s.get('copy_recipe_to_clipboard')
+        self._copy_recipe_to_clipboard = True if b is not None and b == 'True' else False
 
 
     def show(self) -> None:
@@ -525,6 +528,11 @@ class Settings:
         if self._display_unavailable_recipes:
             c.select()
 
+        c = tk.Checkbutton(self._window, text='Copy recipe to clipboard', command=self._update_copy_recipe_to_clipboard)
+        c.grid(row=5, column=0, columnspan=2)
+        if self._copy_recipe_to_clipboard:
+            c.select()
+
     def _close(self) -> None:
         self._window.destroy()
 
@@ -534,6 +542,7 @@ class Settings:
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
         self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
+        self._config['settings']['copy_recipe_to_clipboard'] = str(self._copy_recipe_to_clipboard)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -576,11 +585,18 @@ class Settings:
         self._display_unavailable_recipes = not self._display_unavailable_recipes
         self._save_config()
 
+    def _update_copy_recipe_to_clipboard(self) -> None:
+        self._copy_recipe_to_clipboard = not self._copy_recipe_to_clipboard
+        self._save_config()
+
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
 
     def should_display_unavailable_recipes(self) -> bool:
         return self._display_unavailable_recipes
+
+    def should_copy_recipe_to_clipboard(self) -> bool:
+        return self._copy_recipe_to_clipboard
 
 def get_poe_window_info() -> PoeWindowInfo:
     info = PoeWindowInfo()
