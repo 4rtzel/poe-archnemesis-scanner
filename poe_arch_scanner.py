@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from configparser import ConfigParser
 
 import win32gui
+from win32clipboard import *
 
 import tkinter as tk
 from typing import Callable, Any, Tuple, List, Dict
@@ -396,6 +397,8 @@ class UIOverlay:
         self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
 
         tree = self._items_map.get_subtree_for(item)
+        self._copy_tree_items_to_clipboard(tree)
+
         def draw_tree(node, row, column):
             children_column = column
             for c in node.components:
@@ -444,6 +447,17 @@ class UIOverlay:
 
         if inventory_items is not None:
             self._highlight_items_in_inventory(inventory_items, COLOR_FG_GREEN)
+
+    def _copy_tree_items_to_clipboard(self, tree):
+        OpenClipboard()
+        EmptyClipboard()
+        if len(tree.components) > 0:
+            search_string = '|'.join((str(x.item) for x in tree.components))
+        else:
+            search_string = tree.item
+
+        SetClipboardText('^('+search_string+')')
+        CloseClipboard()
 
     def _destroy_tooltip_and_clear_highlights(self, _) -> None:
         if self._tooltip_window is not None:

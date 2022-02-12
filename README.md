@@ -13,6 +13,7 @@ When you start the program three small buttons will pop up in the top left corne
 * 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
 
 You could also hold the right mouse button to drag the controls around.
+Clicking on item in the recipe tree will copy the components to your clipboard to use in-game highlighting.
 
 ### Settings
 
