@@ -449,13 +449,13 @@ class UIOverlay:
             self._highlight_items_in_inventory(inventory_items, COLOR_FG_GREEN)
 
     def _copy_tree_items_to_clipboard(self, tree):
-        OpenClipboard()
-        EmptyClipboard()
         if len(tree.components) > 0:
             search_string = '|'.join((str(x.item) for x in tree.components))
         else:
             search_string = tree.item
 
+        OpenClipboard()
+        EmptyClipboard()
         SetClipboardText('^('+search_string+')')
         CloseClipboard()
 
