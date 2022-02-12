@@ -13,7 +13,6 @@ When you start the program three small buttons will pop up in the top left corne
 * 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
 
 You could also hold the right mouse button to drag the controls around.
-Clicking on item in the recipe tree will copy the components to your clipboard to use in-game highlighting.
 
 ### Settings
 
@@ -34,6 +33,8 @@ The setting window allows you to adjust some parameters to improve the searching
 * 'Display inventory items' checkbox turns additional display setting for scan window. The scan results will also include a list of all of your archnemesis items in the inventory.
 
 * 'Display unavailable recipes' checkbox turns the display of all possible recipes even if you can't currently build them. The unavailable recipes will be indicated by the white color (light green if you already have it in your inventory).
+
+* 'Copy recipe to clipboard' check box copies a recipee string like `^(Malediction|Deadeye)` to your clipboard when clicking on items in the list or tree views. This allows you to paste into the search box and use the in-game highlighting.
 
 The settings are persistent and will be saved/loaded from settings.ini file.
 
