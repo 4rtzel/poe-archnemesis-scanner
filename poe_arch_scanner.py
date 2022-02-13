@@ -259,6 +259,7 @@ class UIOverlay:
         self._root = root
         self._scan_results_window = None
         self._recipe_browser_window = None
+        self._recipe_browser_current_root = ''
         self._tooltip_window = None
         self._highlight_windows_to_show = list()
         self._scan_results_window_saved_position = (-1, 0)
@@ -393,7 +394,11 @@ class UIOverlay:
     def _show_recipe_browser_tree(self, item: str, results: Dict[str, List[Tuple[int, int]]]) -> None:
         if self._recipe_browser_window is not None:
             self._recipe_browser_window.destroy()
-        self._clear_highlights(None)
+        self._destroy_tooltip_and_clear_highlights(None)
+        # If the user clicks on the current root then close the tree
+        if self._recipe_browser_current_root == item:
+            return
+        self._recipe_browser_current_root = item
         self._recipe_browser_window = UIOverlay.create_toplevel_window()
         self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
 
