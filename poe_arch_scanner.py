@@ -474,6 +474,7 @@ class Settings:
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
+        self._window = None
 
         self._config = ConfigParser()
         self._config_file = 'settings.ini'
@@ -497,6 +498,8 @@ class Settings:
 
 
     def show(self) -> None:
+        if self._window is not None:
+            return
         self._window = tk.Toplevel()
 
         self._window.geometry('+100+200')
@@ -534,7 +537,9 @@ class Settings:
             c.select()
 
     def _close(self) -> None:
-        self._window.destroy()
+        if self._window is not None:
+            self._window.destroy()
+        self._window = None
 
     def _save_config(self) -> None:
         self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
