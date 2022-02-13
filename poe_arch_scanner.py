@@ -146,7 +146,7 @@ class ArchnemesisItemsMap:
             if recipe:
                 yield (item, recipe)
 
-    def get_subtree_for(self, item):
+    def get_subtree_for(self, item: str):
         tree = RecipeItemNode(item, [])
         nodes = [tree]
         while len(nodes) > 0:
@@ -156,6 +156,13 @@ class ArchnemesisItemsMap:
                 node.components = [RecipeItemNode(c, []) for c in children]
                 nodes.extend(node.components)
         return tree
+
+    def get_parent_recipes_for(self, item: str) -> []:
+        parents = list()
+        for parent, components in self._arch_items:
+            if item in components:
+                parents.append(parent)
+        return parents
 
     def _get_item_components(self, item) -> List[str]:
         return next(l for x, l in self._arch_items if x == item)
@@ -400,7 +407,7 @@ class UIOverlay:
             return
         self._recipe_browser_current_root = item
         self._recipe_browser_window = UIOverlay.create_toplevel_window()
-        self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
+        self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 40}')
 
         tree = self._items_map.get_subtree_for(item)
         if self._settings.should_copy_recipe_to_clipboard():
@@ -425,9 +432,16 @@ class UIOverlay:
                 f = tk.Frame(self._recipe_browser_window, bg=COLOR_BG, width=(self._items_map.small_image_size + 4) * columnspan, height=3)
                 f.grid(row=row + 1, column=column, columnspan=columnspan)
             return children_column + 1
-        total_columns = draw_tree(tree, 0, 0)
+        total_columns = draw_tree(tree, 1, 0)
         for c in range(total_columns):
             self._recipe_browser_window.grid_columnconfigure(c, minsize=self._items_map.small_image_size)
+        # Show parents on row 0
+        parents = [RecipeItemNode(p, []) for p in self._items_map.get_parent_recipes_for(item)]
+        if len(parents) > 0:
+            tk.Label(self._recipe_browser_window, text='Used in:', bg=COLOR_BG, fg=COLOR_FG_GREEN, font=FONT_BIG).grid(row=0, column=0)
+            for column, p in enumerate(parents):
+                # Reuse the same function for convenience
+                draw_tree(p, 0, column + 1)
 
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
@@ -449,7 +463,7 @@ class UIOverlay:
         if self._tooltip_window is not None:
             self._tooltip_window.destroy()
         self._tooltip_window = UIOverlay.create_toplevel_window()
-        self._tooltip_window.geometry(f'+{window.winfo_x()}+{window.winfo_y() - 20}')
+        self._tooltip_window.geometry(f'+{window.winfo_x()}+{window.winfo_y() - 40}')
         tk.Label(self._tooltip_window, text=text, font=FONT_BIG, bg=COLOR_BG, fg=COLOR_FG_GREEN).pack()
 
         if inventory_items is not None:
