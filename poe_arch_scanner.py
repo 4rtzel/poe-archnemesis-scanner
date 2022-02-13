@@ -393,6 +393,7 @@ class UIOverlay:
     def _show_recipe_browser_tree(self, item: str, results: Dict[str, List[Tuple[int, int]]]) -> None:
         if self._recipe_browser_window is not None:
             self._recipe_browser_window.destroy()
+        self._clear_highlights(None)
         self._recipe_browser_window = UIOverlay.create_toplevel_window()
         self._recipe_browser_window.geometry(f'+{self._scan_results_window.winfo_x()}+{self._scan_results_window.winfo_y() + self._scan_results_window.winfo_height() + 20}')
 
