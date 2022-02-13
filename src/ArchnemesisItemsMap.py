@@ -37,7 +37,7 @@ class ArchnemesisItemsMap:
             ('Soul Eater', ['Soul Conduit', 'Necromancer', 'Gargantuan']),
             ('Ice Prison', ['Permafrost', 'Sentinel']),
             ('Frost Strider', ['Frostweaver', 'Hasted']),
-            ('Treant Horder', ['Toxic', 'Sentinel', 'Steel-Infused']),
+            ('Treant Horde', ['Toxic', 'Sentinel', 'Steel-Infused']),
             ('Temporal Bubble', ['Juggernaut', 'Hexer', 'Arcane Buffer']),
             ('Entangler', ['Toxic', 'Bloodletter']),
             ('Drought Bringer', ['Malediction', 'Deadeye']),
