@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 from PIL import ImageTk, Image, ImageGrab
 
+import keyboard
+
 COLOR_BG = 'grey19'
 COLOR_FG_WHITE = 'snow'
 COLOR_FG_GREEN = 'green3'
@@ -272,13 +274,23 @@ class UIOverlay:
         self._highlight_windows_to_show = list()
         self._scan_results_window_saved_position = (-1, 0)
 
+
         self._settings = Settings(root, items_map, image_scanner)
+
+        hotkey = self._settings.get_scan_hotkey()
+        if hotkey:
+            try:
+                keyboard.add_hotkey(hotkey, self._hotkey_pressed)
+            except ValueError:
+                print('Invalid scan hotkey')
+
         self._create_controls()
 
         self._root.configure(bg='')
-        self._root.overrideredirect(True)
         self._root.geometry(f'+{info.x + 5}+{info.y + info.title_bar_height + 5}')
-        self._root.wm_attributes('-topmost', True)
+        if self._settings.should_run_as_overlay():
+            self._root.overrideredirect(True)
+            self._root.wm_attributes('-topmost', True)
         self._root.deiconify()
 
     @staticmethod
@@ -290,6 +302,12 @@ class UIOverlay:
         # Make sure the window is always on top
         w.wm_attributes('-topmost', True)
         return w
+
+    def _hotkey_pressed(self) -> None:
+        if self._scan_label_text.get() == 'Scan':
+            self._scan(None)
+        elif self._scan_label_text.get() == 'Hide':
+            self._hide(None)
 
     def _create_controls(self) -> None:
         l = tk.Button(self._root, text='[X]', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
@@ -517,7 +535,10 @@ class Settings:
         self._display_unavailable_recipes = True if b is not None and b == 'True' else False
         b = s.get('copy_recipe_to_clipboard')
         self._copy_recipe_to_clipboard = True if b is not None and b == 'True' else False
-
+        b = s.get('scan_hotkey')
+        self._scan_hotkey = b if b is not None else ''
+        b = s.get('run_as_overlay')
+        self._run_as_overlay = True if b is None or b == 'True' else False
 
     def show(self) -> None:
         if self._window is not None:
@@ -543,19 +564,29 @@ class Settings:
         self._confidence_threshold_entry.grid(row=2, column=0)
         tk.Button(self._window, text='Set confidence threshold', command=self._update_confidence_threshold).grid(row=2, column=1)
 
+        v = tk.StringVar(self._window, value=self._scan_hotkey)
+        self._scan_hotkey_entry = tk.Entry(self._window, textvariable=v)
+        self._scan_hotkey_entry.grid(row=3, column=0)
+        tk.Button(self._window, text='Set scan/hide hotkey', command=self._update_scan_hotkey).grid(row=3, column=1)
+
         c = tk.Checkbutton(self._window, text='Display inventory items', command=self._update_display_inventory_items)
-        c.grid(row=3, column=0, columnspan=2)
+        c.grid(row=4, column=0, columnspan=2)
         if self._display_inventory_items:
             c.select()
 
         c = tk.Checkbutton(self._window, text='Display unavailable recipes', command=self._update_display_unavailable_recipes)
-        c.grid(row=4, column=0, columnspan=2)
+        c.grid(row=5, column=0, columnspan=2)
         if self._display_unavailable_recipes:
             c.select()
 
         c = tk.Checkbutton(self._window, text='Copy recipe to clipboard', command=self._update_copy_recipe_to_clipboard)
-        c.grid(row=5, column=0, columnspan=2)
+        c.grid(row=6, column=0, columnspan=2)
         if self._copy_recipe_to_clipboard:
+            c.select()
+
+        c = tk.Checkbutton(self._window, text='Run as overlay', command=self._update_run_as_overlay)
+        c.grid(row=7, column=0, columnspan=2)
+        if self._run_as_overlay:
             c.select()
 
     def _close(self) -> None:
@@ -570,6 +601,8 @@ class Settings:
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
         self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
         self._config['settings']['copy_recipe_to_clipboard'] = str(self._copy_recipe_to_clipboard)
+        self._config['settings']['scan_hotkey'] = str(self._scan_hotkey)
+        self._config['settings']['run_as_overlay'] = str(self._run_as_overlay)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -616,6 +649,14 @@ class Settings:
         self._copy_recipe_to_clipboard = not self._copy_recipe_to_clipboard
         self._save_config()
 
+    def _update_scan_hotkey(self) -> None:
+        self._scan_hotkey = self._scan_hotkey_entry.get()
+        self._save_config()
+
+    def _update_run_as_overlay(self) -> None:
+        self._run_as_overlay = not self._run_as_overlay
+        self._save_config()
+
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
 
@@ -624,6 +665,12 @@ class Settings:
 
     def should_copy_recipe_to_clipboard(self) -> bool:
         return self._copy_recipe_to_clipboard
+
+    def should_run_as_overlay(self) -> bool:
+        return self._run_as_overlay
+
+    def get_scan_hotkey(self) -> str:
+        return self._scan_hotkey
 
 def show_warning(text: str) -> None:
     messagebox.showwarning('poe-archnemesis-scanner', text)

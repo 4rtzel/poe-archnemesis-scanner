@@ -1,3 +1,4 @@
 opencv-python==4.5.5.62
 Pillow==9.0.1
 pywin32==303
+keyboard==0.13.5
