@@ -92,3 +92,6 @@ python.exe poe_arch_scanner.py
 * Doesn't work if the game is in the fullscreen.
 * Only works for the primary monitor (Tk limitation).
 * Occasionally hangs.
+
+## Other languages
+Chinese -- https://github.com/njes9701/poe_arch_scanner_zh_tw
