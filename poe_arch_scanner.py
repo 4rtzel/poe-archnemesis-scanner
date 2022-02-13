@@ -32,7 +32,7 @@ class ArchnemesisItemsMap:
     """
     Holds the information about all archnemesis items, recipes, images and map them together
     """
-    def __init__(self, scale: float):
+    def __init__(self):
         # Put everything into the list so we could maintain the display order
         self._arch_items = [
             ('Kitava-Touched', ['Tukohama-Touched', 'Abberath-Touched', 'Corrupter', 'Corpse Detonator']),
@@ -59,7 +59,7 @@ class ArchnemesisItemsMap:
             ('Soul Eater', ['Soul Conduit', 'Necromancer', 'Gargantuan']),
             ('Ice Prison', ['Permafrost', 'Sentinel']),
             ('Frost Strider', ['Frostweaver', 'Hasted']),
-            ('Treant Horder', ['Toxic', 'Sentinel', 'Steel-Infused']),
+            ('Treant Horde', ['Toxic', 'Sentinel', 'Steel-Infused']),
             ('Temporal Bubble', ['Juggernaut', 'Hexer', 'Arcane Buffer']),
             ('Entangler', ['Toxic', 'Bloodletter']),
             ('Drought Bringer', ['Malediction', 'Deadeye']),
@@ -101,34 +101,53 @@ class ArchnemesisItemsMap:
         ]
         self._images = dict()
         self._small_image_size = 30
-        self._update_images(scale)
+        # left top right down
+        self._crop_ratio = (0.2, 0.2, 0.2, 0.25)
 
-    def _update_images(self, scale):
-        self._scale = scale
+    def _update_images(self, image_size):
+        # To prevent borders from stopping the scan, crop a bit
         for item, _ in self._arch_items:
             self._images[item] = dict()
-            image = self._load_image(item, scale)
+            image = self._load_image(item, image_size)
             self._image_size = image.size
-            self._images[item]['scan-image'] = self._create_scan_image(image)
+            self._images[item]['scan-image'] = self._create_scan_image(image, item)
             # Convert the image to Tk image because we're going to display it
             self._images[item]['display-image'] = ImageTk.PhotoImage(image=image)
             image = image.resize((self._small_image_size, self._small_image_size))
             self._images[item]['display-small-image'] = ImageTk.PhotoImage(image=image)
 
-    def _load_image(self, item: str, scale: float):
+    def _load_image(self, item: str, image_size: float):
         image = Image.open(f'pictures/{item}.png')
         # Scale the image according to the input parameter
-        return image.resize((int(image.width * scale), int(image.height * scale)))
+        return image.resize((image_size, image_size))
 
-    def _create_scan_image(self, image):
+    def _create_scan_image(self, image, item):
+        width, height = image.size
+        ratiol, ratiou, ratior, ratiod = self._crop_ratio
+        scan_image = image.crop((
+            int(width * ratiol),
+            int(height * ratiou),
+            int(width * (1 - ratior)),
+            int(height * (1 - ratiod))
+        ))
         # Remove alpha channel and replace it with predefined background color
-        background = Image.new('RGBA', image.size, (10, 10, 32))
-        image_without_alpha = Image.alpha_composite(background, image)
+        background = Image.new('RGBA', scan_image.size, (2, 1, 28, 255))
+        image_without_alpha = Image.alpha_composite(background, scan_image)
+        scan_image_array = np.asarray(scan_image)
+        alpha_channel = scan_image_array.T[3]
+        for x in alpha_channel:
+            for y in range(x.size):
+                x[y] = 255
+                #x[y] = 255 if x[y] > 200 else 0
+        scan_image_array.T[0] = scan_image_array.T[1] = scan_image_array.T[2] = scan_image_array.T[3]
+        scan_mask = cv2.cvtColor(scan_image_array, cv2.COLOR_RGBA2BGR)
         scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
-        w, h, _ = scan_template.shape
+
+        # Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
+        # Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
 
         # Crop the image to help with scanning
-        return scan_template[int(h * 1.0 / 10):int(h * 2.3 / 3), int(w * 1.0 / 6):int(w * 5.5 / 6)]
+        return (scan_template, scan_mask)
 
 
     def get_scan_image(self, item):
@@ -174,13 +193,9 @@ class ArchnemesisItemsMap:
     def image_size(self):
         return self._image_size
 
-    @property
-    def scale(self) -> float:
-        return self._scale
-
-    @scale.setter
-    def scale(self, scale: float) -> None:
-        self._update_images(scale)
+    @image_size.setter
+    def image_size(self, image_size: float) -> None:
+        self._update_images(image_size)
 
     @property
     def small_image_size(self):
@@ -194,21 +209,23 @@ class PoeWindowInfo:
     height: int = 0
     client_width: int = 0
     client_height: int = 0
-    title_bar_height: int = 0
 
 class ImageScanner:
     """
     Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
-        self._scanner_window_size = (
-            info.x,
-            info.y + int(info.client_height / 4),
-            int(info.client_width / 3),
-            int(info.client_height * 2 / 3)
-        )
+        total_w = round(info.client_height * 0.62)
+        w = round(info.client_height * 0.405)
+        h = w
+        x = info.x + round(total_w / 2) - round(w / 2) - 1
+        y = info.y + round((info.client_height - 5) * 0.3035) - 1
+
+        items_map._update_images(int(w / 8)) # maybe there is a better place to put this, but we don't want to keep looking up the files
+
+        self._scanner_window_size = (x, y, w, h)
         self._items_map = items_map
-        self._confidence_threshold = 0.94
+        self._confidence_threshold = 0.83
 
     def scan(self) -> Dict[str, List[Tuple[int, int]]]:
         bbox = (
@@ -221,25 +238,33 @@ class ImageScanner:
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
-        results = dict()
+        confidencelist = [ [ None for x in range(8) ] for y in range(8) ]
+        width = int(self._scanner_window_size[2] / 8)
 
         for item in self._items_map.items():
-            template = self._items_map.get_scan_image(item)
-            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
-            _, confidence, _, (x, y) = cv2.minMaxLoc(heat_map)
-            print(f'Best match for {item}: x={x}, y={y} confidence={confidence}', 'too low' if confidence < self._confidence_threshold else '')
+            template, mask = self._items_map.get_scan_image(item)
+            
+            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
             findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
-                rectangles = []
-                ht, wt = template.shape[0], template.shape[1]
                 for (x, y) in zip(findings[1], findings[0]):
-                     # Add every box to the list twice in order to retain single (non-overlapping) boxes
-                    rectangles.append([int(x), int(y), int(wt), int(ht)])
-                    rectangles.append([int(x), int(y), int(wt), int(ht)])
+                    confidence = heat_map[y][x]
+                    ax = int(x / width)
+                    ay = int(y / width)
+                    if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
+                        print(f'at {ax}x{ay} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
+                        confidencelist[ay][ax] = (item, confidence)
 
-                rectangles, _ = cv2.groupRectangles(rectangles, 1, 0.1)
-                results[item] = [(rect[0], rect[1]) for rect in rectangles]
-        print(results)
+        results = dict()
+
+        for y in range(8):
+            for x in range(8):
+                item = confidencelist[y][x]
+                if item is not None:
+                    if item[0] not in results:
+                        results[item[0]] = []
+                    results[item[0]].append((x, y, width, width))
+
         return results
 
     @property
@@ -287,7 +312,7 @@ class UIOverlay:
         self._create_controls()
 
         self._root.configure(bg='')
-        self._root.geometry(f'+{info.x + 5}+{info.y + info.title_bar_height + 5}')
+        self._root.geometry(f'+{info.x + 5}+{info.y + 5}')
         if self._settings.should_run_as_overlay():
             self._root.overrideredirect(True)
             self._root.wm_attributes('-topmost', True)
@@ -365,8 +390,8 @@ class UIOverlay:
         self._scan_results_window = UIOverlay.create_toplevel_window()
         x, y = self._scan_results_window_saved_position
         if x == -1:
-            x = self._window_info.x + int(self._window_info.client_width / 3)
-            y = self._window_info.y + self._window_info.title_bar_height
+            x = self._window_info.x + int(self._window_info.client_height * 0.62)
+            y = self._window_info.y
         self._scan_results_window.geometry(f'+{x}+{y}')
 
         last_column = 0
@@ -465,12 +490,9 @@ class UIOverlay:
 
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
-        for (x, y) in inventory_items:
-            x_offset, y_offset, _, _ = self._image_scanner.scanner_window_size
-            x += x_offset
-            y += y_offset
-            width = int(self._items_map.image_size[0] * 0.7)
-            height = int(self._items_map.image_size[1] * 0.7)
+        for (x, y, width, height) in inventory_items:
+            x = self._image_scanner._scanner_window_size[0] + x * width
+            y = self._image_scanner._scanner_window_size[1] + y * height
             w = UIOverlay.create_toplevel_window(bg=color)
             w.geometry(f'{width}x{height}+{x}+{y}')
             self._highlight_windows_to_show.append(w)
@@ -527,7 +549,6 @@ class Settings:
         scanner_window_size = s.get('scanner_window')
         if scanner_window_size is not None:
             self._image_scanner.scanner_window_size = tuple(map(int, scanner_window_size.replace('(', '').replace(')', '').replace(',', '').split()))
-        self._items_map.scale = float(s.get('image_scale', self._items_map.scale))
         self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
         b = s.get('display_inventory_items')
         self._display_inventory_items = True if b is not None and b == 'True' else False
@@ -553,11 +574,6 @@ class Settings:
         self._scanner_window_entry = tk.Entry(self._window, textvariable=v)
         self._scanner_window_entry.grid(row=0, column=0)
         tk.Button(self._window, text='Set scanner window', command=self._update_scanner_window).grid(row=0, column=1)
-
-        v = tk.DoubleVar(self._window, value=self._items_map.scale)
-        self._scale_entry = tk.Entry(self._window, textvariable=v)
-        self._scale_entry.grid(row=1, column=0)
-        tk.Button(self._window, text='Set image scale', command=self._update_scale).grid(row=1, column=1)
 
         v = tk.DoubleVar(self._window, value=self._image_scanner.confidence_threshold)
         self._confidence_threshold_entry = tk.Entry(self._window, textvariable=v)
@@ -596,7 +612,6 @@ class Settings:
 
     def _save_config(self) -> None:
         self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
-        self._config['settings']['image_scale'] = str(self._items_map.scale)
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
         self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
@@ -617,15 +632,6 @@ class Settings:
         scanner_window_to_show.geometry(f'{width}x{height}+{x}+{y}')
         self._image_scanner.scanner_window_size = (x, y, width, height)
         scanner_window_to_show.after(200, scanner_window_to_show.destroy)
-        self._save_config()
-
-    def _update_scale(self) -> None:
-        try:
-            new_scale = float(self._scale_entry.get())
-        except ValueError:
-            print('Unable to parse image scale parameter')
-            return
-        self._items_map.scale = new_scale
         self._save_config()
 
     def _update_confidence_threshold(self) -> None:
@@ -686,39 +692,13 @@ def get_poe_window_info() -> PoeWindowInfo:
     if hwnd == 0:
         show_error_and_die('Path of Exile is not running.')
 
-    x0, y0, x1, y1 = win32gui.GetWindowRect(hwnd)
+    cx0, cy0, cx1, cy1 = win32gui.GetClientRect(hwnd)
+    x0, y0 = win32gui.ClientToScreen(hwnd, (cx0, cy0))
     info.x = x0
     info.y = y0
-    info.width = x1 - x0
-    info.height = y1 - y0
-    x0, y0, x1, y1 = win32gui.GetClientRect(hwnd)
-    info.client_width = x1 - x0
-    info.client_height = y1 - y0
-
-    if info.client_width == 0 or info.client_height == 0:
-        show_warning("Unable to detect Path of Exile resolution. Make sure it isn't running in the Fullscreen mode.\n\nThe tool will use your screen resolution for calculations instead.")
-        screen = ImageGrab.grab()
-        info.x = 0
-        info.y = 0
-        info.width, info.height = screen.size
-        info.client_width, info.client_height = screen.size
-    info.title_bar_height = info.height - info.client_height
+    info.client_width = cx1 - cx0
+    info.client_height = cy1 - cy0
     return info
-
-def calculate_default_scale(info: PoeWindowInfo) -> float:
-    """
-    TODO: validate the math for non 16:9 resolutions (e.g. ultrawide monitors)
-    """
-
-    # Assume that all source images have 78x78 size
-    source_image_height = 78.0
-
-    # Take 0.91 as a golden standard for 2560x1440 resolution and calculate
-    # scales for other resolutions based on that
-    constant = 1440.0 / (source_image_height * 0.91)
-    scale = info.client_height / (source_image_height * constant)
-
-    return scale
 
 # Create root as early as possible to initialize some modules (e.g. ImageTk)
 root = tk.Tk()
@@ -726,7 +706,7 @@ root.withdraw()
 
 info = get_poe_window_info()
 
-items_map = ArchnemesisItemsMap(calculate_default_scale(info))
+items_map = ArchnemesisItemsMap()
 
 image_scanner = ImageScanner(info, items_map)
 
