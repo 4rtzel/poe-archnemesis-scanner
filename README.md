@@ -63,6 +63,8 @@ If you click at any recipe icon, then the recipe tree will open:
 
 If the icon is highlighted in green, then that means you have this item in your inventory. You could hover of highlighted items to display them in your inventory. The tree is also interactable. You could click at other nodes to zoom in.
 
+Above the tree, a list of recipes (next to 'Used in:') that the selected recipe could be used in will be displayed
+
 Both recipe list and recipe tree could be also moved with the right mouse button held.
 
 ## Installation
