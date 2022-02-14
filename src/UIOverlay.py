@@ -263,7 +263,7 @@ class UIOverlay:
         self._root.mainloop()
 
 class Settings:
-    def __init__(self, root: tk.Tk, items_map, image_scanner):
+    def __init__(self, root: tk.Tk, items_map: ArchnemesisItemsMap, image_scanner):
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
@@ -352,12 +352,11 @@ class Settings:
         if self._shopping_list_mode:
             c.select()
 
-        # TODO: fix this
-        current_shopping_list = self._shopping_list
-        z = tk.Stringzar(self._window, value=current_shopping_list)
-        self._shopping_list = tk.Entry(self._window, textvariable=z)
-        self._shopping_list.grid(row=9, column=0)
-        tk.Button(self._window, text='Set Shopping List', command=self._update_shopping_list).grid(row=9, column=1)
+
+        v = tk.StringVar(self._window, value=self._shopping_list)
+        self._shopping_list_entry = tk.Entry(self._window, textvariable=v)
+        self._shopping_list_entry.grid(row=9, column=0)
+        tk.Button(self._window, text='Set scan/hide hotkey', command=self._update_shopping_list).grid(row=9, column=1)
 
     def _close(self) -> None:
         if self._window is not None:
@@ -435,6 +434,12 @@ class Settings:
 
     def _update_shopping_list(self) -> None:
         # TODO: validate it
+        shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().split(",")))
+        for item in shopping_list:
+            if item not in self._items_map.items():
+                print("Unknown Recipe:", item)
+                raise ValueError
+        self._shopping_list = ",".join(shopping_list)
         self._save_config()
 
     def should_display_inventory_items(self) -> bool:
