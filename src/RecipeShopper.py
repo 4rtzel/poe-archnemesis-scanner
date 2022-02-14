@@ -1,6 +1,8 @@
 from copy import deepcopy
 from typing import Dict, List, Tuple
 from ArchnemesisItemsMap import ArchnemesisItemsMap
+from DataClasses import RecipeItemNode
+import numpy as np
 
 class RecipeShopper:
   def __init__(self, item_map: ArchnemesisItemsMap):
@@ -30,6 +32,31 @@ class RecipeShopper:
       missing_items.extend(nested_missing_items)
 
     return missing_items
+  
+  def get_trash_inventory(self, desired_items: List[str], inventory: Dict[str, List[Tuple[int, int]]]):
+    # step 1: get all items needed in a single flat list
+    all_trees = list(map(lambda item: self._item_map.get_subtree_for(item), desired_items))
+    # step 2: flatten the list of item trees into a flat list of items
+    flattened_items = self._flatten_item_trees(all_trees)
+    # step 3: clone inventory, and remove any needed items from it
+    trash_inventory = deepcopy(inventory)
+    for item in flattened_items:
+      if item in trash_inventory.keys():
+        del trash_inventory[item]
+
+    # TODO: trash_inventory might still contain way too many of a needed item, they can be trashed too
+
+    return trash_inventory
+
+  def _flatten_item_trees(self, trees: List[RecipeItemNode]):
+    def flatten_node(node: RecipeItemNode):
+      flattened = [node.item]
+      if (len(node.components)):
+        flattened.extend(self._flatten_item_trees(node.components))
+      return list(flattened)
+    
+    flattened = list(map(flatten_node, trees))
+    return list(np.concatenate(flattened).ravel())
 
 def is_item_owned(inventory: Dict[str, List[Tuple[int, int]]], item: str):
   return item in inventory.keys() and len(inventory[item]) > 0

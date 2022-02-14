@@ -93,10 +93,12 @@ class UIOverlay:
         self._root.update()
         results = self._image_scanner.scan()
 
-        shopping_list = self._recipe_shopper.get_missing_items(self._settings.get_shopping_list().split(","), results)
+        shopping_list_mode = self._settings.is_shopping_list_mode() is True
+        desired_items = self._settings.get_shopping_list().split(",")
+        shopping_list = self._recipe_shopper.get_missing_items(desired_items, results)
         print("Missing Items:", shopping_list)
 
-        recipe_list = shopping_list if self._settings.is_shopping_list_mode() is True else self._items_map.items()
+        recipe_list = shopping_list if shopping_list_mode is True else self._items_map.items()
         if len(results) > 0:
             recipes = list()
             for item, recipe in self._items_map.recipes():
@@ -104,6 +106,13 @@ class UIOverlay:
                 if (all(screen_items) or self._settings.should_display_unavailable_recipes()) and item in recipe_list:
                     recipes.append((item, [x[0] for x in screen_items if x is not None], item in results, all(screen_items)))
 
+            if shopping_list_mode:
+                trash_inventory = self._recipe_shopper.get_trash_inventory(desired_items, results)
+                trash_recipe_items = [None] * min(4, len(trash_inventory.keys()))
+                trash_recipe_items = [trash_inventory[list(trash_inventory.keys())[i]][0] for i,x in enumerate(trash_recipe_items)]
+                trash_recipe = ('Trash', trash_recipe_items, False, True)
+                recipes.append(trash_recipe)
+                
             self._show_scan_results(results, recipes)
 
             self._scan_label_text.set('Hide')
