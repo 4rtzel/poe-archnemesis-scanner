@@ -9,6 +9,7 @@ from DataClasses import PoeWindowInfo
 from ArchnemesisItemsMap import ArchnemesisItemsMap
 from ImageScanner import ImageScanner
 from DataClasses import RecipeItemNode
+from RecipeShopper import RecipeShopper
 from constants import COLOR_BG, COLOR_FG_GREEN, COLOR_FG_LIGHT_GREEN, COLOR_FG_ORANGE, COLOR_FG_WHITE, FONT_BIG, FONT_SMALL
 
 
@@ -16,11 +17,12 @@ class UIOverlay:
     """
     Overlay window using tkinter '-topmost' property
     """
-    def __init__(self, root: tk.Tk, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
+    def __init__(self, root: tk.Tk, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner, recipe_shopper: RecipeShopper):
         self._window_info = info
         self._items_map = items_map
         self._image_scanner = image_scanner
         self._root = root
+        self._recipe_shopper = recipe_shopper
         self._scan_results_window = None
         self._recipe_browser_window = None
         self._recipe_browser_current_root = ''
@@ -90,11 +92,16 @@ class UIOverlay:
         self._scan_label_text.set('Scanning...')
         self._root.update()
         results = self._image_scanner.scan()
+
+        shopping_list = self._recipe_shopper.get_missing_items(self._settings.get_shopping_list().split(","), results)
+        print("Missing Items:", shopping_list)
+
+        recipe_list = shopping_list if self._settings.is_shopping_list_mode() is True else self._items_map.items()
         if len(results) > 0:
             recipes = list()
             for item, recipe in self._items_map.recipes():
                 screen_items = [results.get(x) for x in recipe]
-                if all(screen_items) or self._settings.should_display_unavailable_recipes():
+                if (all(screen_items) or self._settings.should_display_unavailable_recipes()) and item in recipe_list:
                     recipes.append((item, [x[0] for x in screen_items if x is not None], item in results, all(screen_items)))
 
             self._show_scan_results(results, recipes)

@@ -8,8 +8,8 @@ class RecipeShopper:
 
   def get_missing_items(self, desired_items: List[str], current_inventory: Dict[str, List[Tuple[int, int]]]):
     missing_items = list()
-    # clone the inventory, because we're going to take things out of it as owned
-    # items are identified in case dupes are needed
+    # clone the inventory, because we're going to take things out of it
+    # as owned items are identified in case dupes are needed
     working_inventory = deepcopy(current_inventory)
 
     # identify which items are not already owned,
