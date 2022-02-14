@@ -216,8 +216,7 @@ class ImageScanner:
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
         total_w = round(info.client_height * 0.62)
-        w = round(info.client_height * 0.405)
-        h = w
+        h = w = round(total_w * 0.652)
         x = info.x + round(total_w / 2) - round(w / 2) - 1
         y = info.y + round((info.client_height - 5) * 0.3035) - 1
 
@@ -227,7 +226,7 @@ class ImageScanner:
         self._items_map = items_map
         self._confidence_threshold = 0.83
 
-    def scan(self) -> Dict[str, List[Tuple[int, int]]]:
+    def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         bbox = (
             self._scanner_window_size[0],
             self._scanner_window_size[1],
@@ -273,7 +272,7 @@ class ImageScanner:
 
     @scanner_window_size.setter
     def scanner_window_size(self, value: Tuple[int, int, int, int]) -> None:
-        self._scanner_window_size = value
+        raise Exception("not allowed anymore")
 
     @property
     def confidence_threshold(self) -> float:
@@ -546,9 +545,6 @@ class Settings:
             self._config.add_section('settings')
         s = self._config['settings']
 
-        scanner_window_size = s.get('scanner_window')
-        if scanner_window_size is not None:
-            self._image_scanner.scanner_window_size = tuple(map(int, scanner_window_size.replace('(', '').replace(')', '').replace(',', '').split()))
         self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
         b = s.get('display_inventory_items')
         self._display_inventory_items = True if b is not None and b == 'True' else False
@@ -568,12 +564,6 @@ class Settings:
 
         self._window.geometry('+100+200')
         self._window.protocol('WM_DELETE_WINDOW', self._close)
-
-        current_scanner_window = f'{self._image_scanner.scanner_window_size}'.replace('(', '').replace(')', '')
-        v = tk.StringVar(self._window, value=current_scanner_window)
-        self._scanner_window_entry = tk.Entry(self._window, textvariable=v)
-        self._scanner_window_entry.grid(row=0, column=0)
-        tk.Button(self._window, text='Set scanner window', command=self._update_scanner_window).grid(row=0, column=1)
 
         v = tk.DoubleVar(self._window, value=self._image_scanner.confidence_threshold)
         self._confidence_threshold_entry = tk.Entry(self._window, textvariable=v)
@@ -611,7 +601,6 @@ class Settings:
         self._window = None
 
     def _save_config(self) -> None:
-        self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
         self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
@@ -620,19 +609,6 @@ class Settings:
         self._config['settings']['run_as_overlay'] = str(self._run_as_overlay)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
-
-    def _update_scanner_window(self) -> None:
-        try:
-            x, y, width, height = map(int, self._scanner_window_entry.get().replace(',', '').split())
-        except ValueError:
-            print('Unable to parse scanner window parameters')
-            return
-
-        scanner_window_to_show = UIOverlay.create_toplevel_window(bg='white')
-        scanner_window_to_show.geometry(f'{width}x{height}+{x}+{y}')
-        self._image_scanner.scanner_window_size = (x, y, width, height)
-        scanner_window_to_show.after(200, scanner_window_to_show.destroy)
-        self._save_config()
 
     def _update_confidence_threshold(self) -> None:
         try:
