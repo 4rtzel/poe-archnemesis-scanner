@@ -198,7 +198,7 @@ class PoeWindowInfo:
 
 class ImageScanner:
     """
-    Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
+    Implements scanning algorithm with OpenCV. Maintains the scanning window to speed up the scanning.
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
         self._scanner_window_size = (
