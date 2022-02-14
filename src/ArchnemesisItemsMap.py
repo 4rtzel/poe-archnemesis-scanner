@@ -75,7 +75,8 @@ class ArchnemesisItemsMap:
             ('Steel-Infused', []),
             ('Stormweaver', []),
             ('Toxic', []),
-            ('Vampiric', [])
+            ('Vampiric', []),
+            ('Trash', [])
         ]
         self._images = dict()
         self._small_image_size = 30

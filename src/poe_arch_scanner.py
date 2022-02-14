@@ -14,6 +14,8 @@ from tkinter import messagebox
 
 from PIL import ImageGrab
 
+from RecipeShopper import RecipeShopper
+
 def show_warning(text: str) -> None:
     messagebox.showwarning('poe-archnemesis-scanner', text)
 
@@ -71,5 +73,7 @@ items_map = ArchnemesisItemsMap(calculate_default_scale(info))
 
 image_scanner = ImageScanner(info, items_map)
 
-overlay = UIOverlay(root, info, items_map, image_scanner)
+recipe_shopper = RecipeShopper(items_map)
+
+overlay = UIOverlay(root, info, items_map, image_scanner, recipe_shopper)
 overlay.run()
