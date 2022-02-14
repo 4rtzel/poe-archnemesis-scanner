@@ -34,19 +34,20 @@ class RecipeShopper:
     return missing_items
   
   def get_trash_inventory(self, desired_items: List[str], inventory: Dict[str, List[Tuple[int, int]]]):
-    # step 1: get all items needed in a single flat list
-    all_trees = list(map(lambda item: self._item_map.get_subtree_for(item), desired_items))
-    # step 2: flatten the list of item trees into a flat list of items
-    flattened_items = self._flatten_item_trees(all_trees)
-    # step 3: clone inventory, and remove any needed items from it
+    full_shopping_list = self._get_full_shopping_list(desired_items)
     trash_inventory = deepcopy(inventory)
-    for item in flattened_items:
+
+    for item in full_shopping_list:
       if item in trash_inventory.keys():
         del trash_inventory[item]
 
     # TODO: trash_inventory might still contain way too many of a needed item, they can be trashed too
 
     return trash_inventory
+
+  def _get_full_shopping_list(self, desired_items: List[str]):
+    full_shopping_list = list(map(lambda item: self._item_map.get_subtree_for(item), desired_items))
+    return self._flatten_item_trees(full_shopping_list)
 
   def _flatten_item_trees(self, trees: List[RecipeItemNode]):
     def flatten_node(node: RecipeItemNode):

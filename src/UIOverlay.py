@@ -98,12 +98,14 @@ class UIOverlay:
         shopping_list = self._recipe_shopper.get_missing_items(desired_items, results)
         print("Missing Items:", shopping_list)
 
-        recipe_list = shopping_list if shopping_list_mode is True else self._items_map.items()
+        main_recipe_list = self._items_map.recipes()
+        shopping_list_recipe_list = [x for x in self._items_map.recipes() if x[0] in self._recipe_shopper._get_full_shopping_list(desired_items)]
+        recipe_list = main_recipe_list if not shopping_list_mode else shopping_list_recipe_list
         if len(results) > 0:
             recipes = list()
-            for item, recipe in self._items_map.recipes():
+            for item, recipe in recipe_list:
                 screen_items = [results.get(x) for x in recipe]
-                if (all(screen_items) or self._settings.should_display_unavailable_recipes()) and item in recipe_list:
+                if (all(screen_items) or self._settings.should_display_unavailable_recipes()):
                     recipes.append((item, [x[0] for x in screen_items if x is not None], item in results, all(screen_items)))
 
             if shopping_list_mode:
