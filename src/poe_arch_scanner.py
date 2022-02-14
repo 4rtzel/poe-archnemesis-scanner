@@ -59,7 +59,6 @@ def calculate_default_scale(info: PoeWindowInfo) -> float:
     # scales for other resolutions based on that
     constant = 1440.0 / (source_image_height * 0.91)
     scale = info.client_height / (source_image_height * constant)
-    print(scale)
     return scale
 
 # Create root as early as possible to initialize some modules (e.g. ImageTk)

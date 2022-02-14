@@ -16,7 +16,7 @@ class UIOverlay:
     """
     Overlay window using tkinter '-topmost' property
     """
-    def __init__(self, root, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
+    def __init__(self, root: tk.Tk, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
         self._window_info = info
         self._items_map = items_map
         self._image_scanner = image_scanner
@@ -263,7 +263,7 @@ class UIOverlay:
         self._root.mainloop()
 
 class Settings:
-    def __init__(self, root, items_map, image_scanner):
+    def __init__(self, root: tk.Tk, items_map, image_scanner):
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
@@ -292,6 +292,11 @@ class Settings:
         self._scan_hotkey = b if b is not None else ''
         b = s.get('run_as_overlay')
         self._run_as_overlay = True if b is None or b == 'True' else False
+        b = s.get('shopping_list_mode')
+        self._shopping_list_mode = False if b is None or b == 'False' else True
+        b = s.get('shopping_list')
+        self._shopping_list = '' if b is None else b
+
 
     def show(self) -> None:
         if self._window is not None:
@@ -342,6 +347,18 @@ class Settings:
         if self._run_as_overlay:
             c.select()
 
+        c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
+        c.grid(row=8, column=0, columnspan=2)
+        if self._shopping_list_mode:
+            c.select()
+
+        # TODO: fix this
+        current_shopping_list = self._shopping_list
+        z = tk.Stringzar(self._window, value=current_shopping_list)
+        self._shopping_list = tk.Entry(self._window, textvariable=z)
+        self._shopping_list.grid(row=9, column=0)
+        tk.Button(self._window, text='Set Shopping List', command=self._update_shopping_list).grid(row=9, column=1)
+
     def _close(self) -> None:
         if self._window is not None:
             self._window.destroy()
@@ -356,6 +373,8 @@ class Settings:
         self._config['settings']['copy_recipe_to_clipboard'] = str(self._copy_recipe_to_clipboard)
         self._config['settings']['scan_hotkey'] = str(self._scan_hotkey)
         self._config['settings']['run_as_overlay'] = str(self._run_as_overlay)
+        self._config['settings']['shopping_list_mode'] = str(self._shopping_list_mode)
+        self._config['settings']['shopping_list'] = str(self._shopping_list)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -410,6 +429,14 @@ class Settings:
         self._run_as_overlay = not self._run_as_overlay
         self._save_config()
 
+    def _update_shopping_list_mode(self) -> None:
+        self._shopping_list_mode = not self._shopping_list_mode
+        self._save_config()
+
+    def _update_shopping_list(self) -> None:
+        # TODO: validate it
+        self._save_config()
+
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
 
@@ -424,3 +451,9 @@ class Settings:
 
     def get_scan_hotkey(self) -> str:
         return self._scan_hotkey
+
+    def is_shopping_list_mode(self) -> bool:
+        return self._shopping_list_mode
+
+    def get_shopping_list(self) -> str:
+        return self._shopping_list
