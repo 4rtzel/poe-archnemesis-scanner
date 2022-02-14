@@ -1,10 +1,11 @@
 from dataclasses import dataclass
+from typing import Any, List
 
 
 @dataclass
 class RecipeItemNode:
     item: str
-    components: list
+    components: List[Any]
 
 
 @dataclass
