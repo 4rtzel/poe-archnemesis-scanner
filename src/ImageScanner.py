@@ -28,7 +28,6 @@ class ImageScanner:
     def matchInThread(self, screen, template, mask):
         return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
 
-
     def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         bbox = (
             self._scanner_window_size[0],
@@ -58,16 +57,14 @@ class ImageScanner:
                 item, mult = futures[thread]
                 heat_map = thread.result()
 
-                findings = np.where(heat_map >= self._confidence_threshold * mult)
+                findings = np.where(heat_map >= pow(self._confidence_threshold, 2))
                 if len(findings[0]) > 0:
                     for (x, y) in zip(findings[1], findings[0]):
                         confidence = heat_map[y][x] * mult
-                        axf = x / width
-                        ayf = y / width
                         ax = int(x / width)
                         ay = int(y / width)
                         if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
-                            print(f'at {axf}x{ayf} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
+                            print(f'at {ax}x{ay} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
                             confidencelist[ay][ax] = (item, confidence)
 
         results = dict()

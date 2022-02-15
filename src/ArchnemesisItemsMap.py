@@ -78,6 +78,10 @@ class ArchnemesisItemsMap:
             ('Vampiric', []),
             ('Trash', [])
         ]
+
+        self._multiplier_override = {
+            "Malediction": 0.6
+        }
         self._images = dict()
         self._small_image_size = 30
         self._crop_ratio = (0.05, 0.05, 0.05, 0.2)
@@ -98,7 +102,8 @@ class ArchnemesisItemsMap:
         
         for item in self._images:
             value = self._images[item]
-            value['scan-image'][2] = value['scan-image'][2] / least_mask
+            value['scan-image'][2] = self._multiplier_override[item] if item in self._multiplier_override else value['scan-image'][2] / least_mask
+            print(item, value['scan-image'][2])
 
     def _load_image(self, item: str, image_size: float):
         image = Image.open(f'pictures/{item}.png')
@@ -129,7 +134,7 @@ class ArchnemesisItemsMap:
         # Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
         # Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
 
-        nonzero_mask = pow(np.sum(np.count_nonzero(np.count_nonzero(scan_mask == 255, axis = 2) == 3, axis = 0)), 0.5)
+        nonzero_mask = np.sum(np.count_nonzero(np.count_nonzero(scan_mask == 255, axis = 2) == 3, axis = 0))
 
         # Crop the image to help with scanning
         return (scan_template, scan_mask, nonzero_mask)
