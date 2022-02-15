@@ -365,16 +365,20 @@ class Settings:
         if self._run_as_overlay:
             c.select()
 
+        
         c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
         c.grid(row=8, column=0, columnspan=2)
         if self._shopping_list_mode:
             c.select()
 
+        self._shopping_list_label = tk.StringVar()
+        self._shopping_list_label.set("Enter a comma separated list of items")
+        c = tk.Label(self._window, textvariable=self._shopping_list_label).grid(row=9, column=0, columnspan=2)
 
         v = tk.StringVar(self._window, value=self._shopping_list)
         self._shopping_list_entry = tk.Entry(self._window, textvariable=v)
-        self._shopping_list_entry.grid(row=9, column=0)
-        tk.Button(self._window, text='Set scan/hide hotkey', command=self._update_shopping_list).grid(row=9, column=1)
+        self._shopping_list_entry.grid(row=10, column=0)
+        tk.Button(self._window, text='Set shopping list', command=self._update_shopping_list).grid(row=10, column=1)
 
     def _close(self) -> None:
         if self._window is not None:
@@ -451,14 +455,21 @@ class Settings:
         self._save_config()
 
     def _update_shopping_list(self) -> None:
-        # TODO: validate it
         shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().split(",")))
+        if len(shopping_list) == 0 or len(self._shopping_list_entry.get().strip()) == 0:
+            self._update_shopping_list_label("Error: Must enter at least one item")
+            raise ValueError
         for item in shopping_list:
             if item not in self._items_map.items():
-                print("Unknown Recipe:", item)
+                self._update_shopping_list_label('Error: unknown item "{0}"'.format(item))
                 raise ValueError
+        self._update_shopping_list_label("Shopping list updated!")
         self._shopping_list = ",".join(shopping_list)
         self._save_config()
+    
+    def _update_shopping_list_label(self, value) -> None:
+        self._shopping_list_label.set(value)
+        self._window.update_idletasks()
 
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
