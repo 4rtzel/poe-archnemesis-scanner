@@ -1,318 +1,33 @@
-import sys
-import os
-from dataclasses import dataclass
 from configparser import ConfigParser
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import win32gui
-from win32clipboard import *
-
-import tkinter as tk
-from tkinter import messagebox
-from typing import Callable, Any, Tuple, List, Dict
-
-import cv2
-import numpy as np
-from PIL import ImageTk, Image, ImageGrab
-
+from dataclasses import dataclass
 import keyboard
+import tkinter as tk
+import sys
+from win32clipboard import OpenClipboard, EmptyClipboard, SetClipboardText, CloseClipboard
 
-COLOR_BG = 'grey19'
-COLOR_FG_WHITE = 'snow'
-COLOR_FG_GREEN = 'green3'
-COLOR_FG_LIGHT_GREEN = 'DarkOliveGreen3'
-COLOR_FG_ORANGE = 'orange2'
-FONT_BIG = ('Consolas', '14')
-FONT_SMALL = ('Consolas', '9')
+from typing import Dict, List, Tuple
+from DataClasses import PoeWindowInfo
+from ArchnemesisItemsMap import ArchnemesisItemsMap
+from ImageScanner import ImageScanner
+from DataClasses import RecipeItemNode
+from RecipeShopper import RecipeShopper
+from constants import COLOR_BG, COLOR_FG_GREEN, COLOR_FG_LIGHT_GREEN, COLOR_FG_ORANGE, COLOR_FG_WHITE, FONT_BIG, FONT_SMALL
 
 @dataclass
 class RecipeItemNode:
     item: str
     components: list
 
-class ArchnemesisItemsMap:
-    """
-    Holds the information about all archnemesis items, recipes, images and map them together
-    """
-    def __init__(self):
-        # Put everything into the list so we could maintain the display order
-        self._arch_items = [
-            ('Kitava-Touched', ['Tukohama-Touched', 'Abberath-Touched', 'Corrupter', 'Corpse Detonator']),
-            ('Innocence-Touched', ['Lunaris-Touched', 'Solaris-Touched', 'Mirror Image', 'Mana Siphoner']),
-            ('Shakari-Touched', ['Entangler', 'Soul Eater', 'Drought Bringer']),
-            ('Abberath-Touched', ['Flame Strider', 'Frenzied', 'Rejuvenating']),
-            ('Tukohama-Touched', ['Bonebreaker', 'Executioner', 'Magma Barrier']),
-            ('Brine King-Touched', ['Ice Prison', 'Storm Strider', 'Heralding Minions']),
-            ('Arakaali-Touched', ['Corpse Detonator', 'Entangler', 'Assassin']),
-            ('Solaris-Touched', ['Invulnerable', 'Magma Barrier', 'Empowered Minions']),
-            ('Lunaris-Touched', ['Invulnerable', 'Frost Strider', 'Empowered Minions']),
-            ('Effigy', ['Hexer', 'Malediction', 'Corrupter']),
-            ('Empowered Elements', ['Evocationist', 'Steel-Infused', 'Chaosweaver']),
-            ('Crystal-Skinned', ['Permafrost', 'Rejuvenating', 'Berserker']),
-            ('Invulnerable', ['Sentinel', 'Juggernaut', 'Consecrator']),
-            ('Corrupter', ['Bloodletter', 'Chaosweaver']),
-            ('Mana Siphoner', ['Consecrator', 'Dynamo']),
-            ('Storm Strider', ['Stormweaver', 'Hasted']),
-            ('Mirror Image', ['Echoist', 'Soul Conduit']),
-            ('Magma Barrier', ['Incendiary', 'Bonebreaker']),
-            ('Evocationist', ['Flameweaver', 'Frostweaver', 'Stormweaver']),
-            ('Corpse Detonator', ['Necromancer', 'Incendiary']),
-            ('Flame Strider', ['Flameweaver', 'Hasted']),
-            ('Soul Eater', ['Soul Conduit', 'Necromancer', 'Gargantuan']),
-            ('Ice Prison', ['Permafrost', 'Sentinel']),
-            ('Frost Strider', ['Frostweaver', 'Hasted']),
-            ('Treant Horde', ['Toxic', 'Sentinel', 'Steel-Infused']),
-            ('Temporal Bubble', ['Juggernaut', 'Hexer', 'Arcane Buffer']),
-            ('Entangler', ['Toxic', 'Bloodletter']),
-            ('Drought Bringer', ['Malediction', 'Deadeye']),
-            ('Hexer', ['Chaosweaver', 'Echoist']),
-            ('Executioner', ['Frenzied', 'Berserker']),
-            ('Rejuvenating', ['Gargantuan', 'Vampiric']),
-            ('Necromancer', ['Bombardier', 'Overcharged']),
-            ('Trickster', ['Overcharged', 'Assassin', 'Echoist']),
-            ('Assassin', ['Deadeye', 'Vampiric']),
-            ('Empowered Minions', ['Necromancer', 'Executioner', 'Gargantuan']),
-            ('Heralding Minions', ['Dynamo', 'Arcane Buffer']),
-            ('Arcane Buffer', []),
-            ('Berserker', []),
-            ('Bloodletter', []),
-            ('Bombardier', []),
-            ('Bonebreaker', []),
-            ('Chaosweaver', []),
-            ('Consecrator', []),
-            ('Deadeye', []),
-            ('Dynamo', []),
-            ('Echoist', []),
-            ('Flameweaver', []),
-            ('Frenzied', []),
-            ('Frostweaver', []),
-            ('Gargantuan', []),
-            ('Hasted', []),
-            ('Incendiary', []),
-            ('Juggernaut', []),
-            ('Malediction', []),
-            ('Opulent', []),
-            ('Overcharged', []),
-            ('Permafrost', []),
-            ('Sentinel', []),
-            ('Soul Conduit', []),
-            ('Steel-Infused', []),
-            ('Stormweaver', []),
-            ('Toxic', []),
-            ('Vampiric', [])
-        ]
-        self._images = dict()
-        self._small_image_size = 30
-        # left top right down
-        self._crop_ratio = (0.05, 0.05, 0.05, 0.2)
-
-    def _update_images(self, image_size):
-        # To prevent borders from stopping the scan, crop a bit
-        least_mask = 0
-        for item, _ in self._arch_items:
-            self._images[item] = dict()
-            image = self._load_image(item, image_size)
-            self._image_size = image.size
-            self._images[item]['scan-image'] = list(self._create_scan_image(image, item))
-            least_mask = max(least_mask, self._images[item]['scan-image'][2])
-            # Convert the image to Tk image because we're going to display it
-            self._images[item]['display-image'] = ImageTk.PhotoImage(image=image)
-            image = image.resize((self._small_image_size, self._small_image_size))
-            self._images[item]['display-small-image'] = ImageTk.PhotoImage(image=image)
-        
-        for item in self._images:
-            value = self._images[item]
-            value['scan-image'][2] = value['scan-image'][2] / least_mask
-
-    def _load_image(self, item: str, image_size: float):
-        image = Image.open(f'pictures/{item}.png')
-        # Scale the image according to the input parameter
-        return image.resize((image_size, image_size))
-
-    def _create_scan_image(self, image, item):
-        width, height = image.size
-        ratiol, ratiou, ratior, ratiod = self._crop_ratio
-        scan_image = image.crop((
-            int(width * ratiol),
-            int(height * ratiou),
-            int(width * (1 - ratior)),
-            int(height * (1 - ratiod))
-        ))
-        # Remove alpha channel and replace it with predefined background color
-        background = Image.new('RGBA', scan_image.size, (2, 1, 28, 255))
-        image_without_alpha = Image.alpha_composite(background, scan_image)
-        scan_image_array = np.asarray(scan_image)
-        alpha_channel = scan_image_array.T[3]
-        for x in alpha_channel:
-            for y in range(x.size):
-                x[y] = 255 if x[y] > 50 else 0
-        scan_image_array.T[0] = scan_image_array.T[1] = scan_image_array.T[2] = scan_image_array.T[3]
-        scan_mask = cv2.cvtColor(scan_image_array, cv2.COLOR_RGBA2BGR)
-        scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
-
-        # Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
-        # Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
-
-        nonzero_mask = pow(np.sum(np.count_nonzero(np.count_nonzero(scan_mask == 255, axis = 2) == 3, axis = 0)), 0.5)
-
-        # Crop the image to help with scanning
-        return (scan_template, scan_mask, nonzero_mask)
-
-
-    def get_scan_image(self, item):
-        return self._images[item]['scan-image']
-
-    def get_display_image(self, item):
-        return self._images[item]['display-image']
-
-    def get_display_small_image(self, item):
-        return self._images[item]['display-small-image']
-
-    def items(self):
-        for item, _ in self._arch_items:
-            yield item
-
-    def recipes(self):
-        for item, recipe in self._arch_items:
-            if recipe:
-                yield (item, recipe)
-
-    def get_subtree_for(self, item: str):
-        tree = RecipeItemNode(item, [])
-        nodes = [tree]
-        while len(nodes) > 0:
-            node = nodes.pop(0)
-            children = self._get_item_components(node.item)
-            if len(children) > 0:
-                node.components = [RecipeItemNode(c, []) for c in children]
-                nodes.extend(node.components)
-        return tree
-
-    def get_parent_recipes_for(self, item: str) -> []:
-        parents = list()
-        for parent, components in self._arch_items:
-            if item in components:
-                parents.append(parent)
-        return parents
-
-    def _get_item_components(self, item) -> List[str]:
-        return next(l for x, l in self._arch_items if x == item)
-
-    @property
-    def image_size(self):
-        return self._image_size
-
-    @image_size.setter
-    def image_size(self, image_size: float) -> None:
-        self._update_images(image_size)
-
-    @property
-    def small_image_size(self):
-        return self._small_image_size
-
-@dataclass
-class PoeWindowInfo:
-    x: int = 0
-    y: int = 0
-    width: int = 0
-    height: int = 0
-    src: Image = None
-
-class ImageScanner:
-    """
-    Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
-    """
-    def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
-        total_w = round(info.height * 0.62)
-        h = w = round(total_w * 0.65)
-        x = info.x + round(total_w / 2) - round(w / 2) - 1
-        y = info.y + round((info.height - 5) * 0.3035) - 1
-
-        items_map._update_images(int(w / 8) - 1) # maybe there is a better place to put this, but we don't want to keep looking up the files
-
-        self._scanner_window_size = (x, y, w, h)
-        self._image_src = info.src
-        self._items_map = items_map
-        self._confidence_threshold = 0.75
-
-    def matchInThread(self, screen, template, mask):
-        return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
-
-
-    def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
-        bbox = (
-            self._scanner_window_size[0],
-            self._scanner_window_size[1],
-            self._scanner_window_size[0] + self._scanner_window_size[2],
-            self._scanner_window_size[1] + self._scanner_window_size[3]
-        )
-        if self._image_src:
-            screen = self._image_src.crop(box=bbox)
-        else:
-            screen = ImageGrab.grab(bbox=bbox)
-        # screen.save("test/screenshot.png")
-        screen = np.array(screen)
-        screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
-
-        confidencelist = [ [ None for x in range(8) ] for y in range(8) ]
-        width = int(self._scanner_window_size[2] / 8) - 1
-
-        futures = dict()
-
-        with ThreadPoolExecutor(max_workers=max(1, (os.cpu_count() or 3) - 2)) as e:
-            for item in self._items_map.items():
-                template, mask, mult = self._items_map.get_scan_image(item)
-                futures[e.submit(self.matchInThread, screen, template, mask)] = (item, mult)
-            
-            for thread in as_completed(futures):
-                item, mult = futures[thread]
-                heat_map = thread.result()
-
-                findings = np.where(heat_map >= self._confidence_threshold)
-                if len(findings[0]) > 0:
-                    for (x, y) in zip(findings[1], findings[0]):
-                        confidence = heat_map[y][x] * mult
-                        axf = x / width
-                        ayf = y / width
-                        ax = int(x / width)
-                        ay = int(y / width)
-                        if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
-                            print(f'at {axf}x{ayf} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
-                            confidencelist[ay][ax] = (item, confidence)
-
-        results = dict()
-
-        for y in range(8):
-            for x in range(8):
-                item = confidencelist[y][x]
-                if item is not None:
-                    if item[0] not in results:
-                        results[item[0]] = []
-                    results[item[0]].append((x, y, width, width))
-
-        return results
-
-    @property
-    def scanner_window_size(self) -> Tuple[int, int, int, int]:
-        return self._scanner_window_size
-
-    @property
-    def confidence_threshold(self) -> float:
-        return self._confidence_threshold
-
-    @confidence_threshold.setter
-    def confidence_threshold(self, value) -> None:
-        self._confidence_threshold = value
-
 class UIOverlay:
     """
     Overlay window using tkinter '-topmost' property
     """
-    def __init__(self, root, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner):
+    def __init__(self, root: tk.Tk, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, image_scanner: ImageScanner, recipe_shopper: RecipeShopper):
         self._window_info = info
         self._items_map = items_map
         self._image_scanner = image_scanner
         self._root = root
+        self._recipe_shopper = recipe_shopper
         self._scan_results_window = None
         self._recipe_browser_window = None
         self._recipe_browser_current_root = ''
@@ -382,13 +97,31 @@ class UIOverlay:
         self._scan_label_text.set('Scanning...')
         self._root.update()
         results = self._image_scanner.scan()
+
+        shopping_list_mode = self._settings.is_shopping_list_mode() is True
+        desired_items = self._settings.get_shopping_list().split(",")
+        if desired_items.count("") > 0:
+            desired_items.remove("")
+        shopping_list = self._recipe_shopper.get_missing_items(desired_items, results)
+        print("Missing Items:", shopping_list)
+
+        main_recipe_list = self._items_map.recipes()
+        shopping_list_recipe_list = [x for x in self._items_map.recipes() if x[0] in self._recipe_shopper._get_full_shopping_list(desired_items)]
+        recipe_list = main_recipe_list if not shopping_list_mode else shopping_list_recipe_list
         if len(results) > 0:
             recipes = list()
-            for item, recipe in self._items_map.recipes():
+            for item, recipe in recipe_list:
                 screen_items = [results.get(x) for x in recipe]
-                if all(screen_items) or self._settings.should_display_unavailable_recipes():
+                if (all(screen_items) or self._settings.should_display_unavailable_recipes()):
                     recipes.append((item, [x[0] for x in screen_items if x is not None], item in results, all(screen_items)))
 
+            if shopping_list_mode:
+                trash_inventory = self._recipe_shopper.get_trash_inventory(desired_items, results)
+                trash_recipe_items = [None] * min(4, len(trash_inventory.keys()))
+                trash_recipe_items = [trash_inventory[list(trash_inventory.keys())[i]][0] for i,x in enumerate(trash_recipe_items)]
+                trash_recipe = ('Trash', trash_recipe_items, False, True)
+                recipes.append(trash_recipe)
+                
             self._show_scan_results(results, recipes)
 
             self._scan_label_text.set('Hide')
@@ -551,9 +284,8 @@ class UIOverlay:
     def run(self) -> None:
         self._root.mainloop()
 
-
 class Settings:
-    def __init__(self, root, items_map, image_scanner):
+    def __init__(self, root: tk.Tk, items_map: ArchnemesisItemsMap, image_scanner):
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
@@ -578,6 +310,11 @@ class Settings:
         self._scan_hotkey = b if b is not None else ''
         b = s.get('run_as_overlay')
         self._run_as_overlay = True if b is None or b == 'True' else False
+        b = s.get('shopping_list_mode')
+        self._shopping_list_mode = False if b is None or b == 'False' else True
+        b = s.get('shopping_list')
+        self._shopping_list = '' if b is None else b
+
 
     def show(self) -> None:
         if self._window is not None:
@@ -617,6 +354,21 @@ class Settings:
         if self._run_as_overlay:
             c.select()
 
+        
+        c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
+        c.grid(row=8, column=0, columnspan=2)
+        if self._shopping_list_mode:
+            c.select()
+
+        self._shopping_list_label = tk.StringVar()
+        self._shopping_list_label.set("Enter a comma separated list of items")
+        c = tk.Label(self._window, textvariable=self._shopping_list_label).grid(row=9, column=0, columnspan=2)
+
+        v = tk.StringVar(self._window, value=self._shopping_list)
+        self._shopping_list_entry = tk.Entry(self._window, textvariable=v)
+        self._shopping_list_entry.grid(row=10, column=0)
+        tk.Button(self._window, text='Set shopping list', command=self._update_shopping_list).grid(row=10, column=1)
+
     def _close(self) -> None:
         if self._window is not None:
             self._window.destroy()
@@ -629,6 +381,8 @@ class Settings:
         self._config['settings']['copy_recipe_to_clipboard'] = str(self._copy_recipe_to_clipboard)
         self._config['settings']['scan_hotkey'] = str(self._scan_hotkey)
         self._config['settings']['run_as_overlay'] = str(self._run_as_overlay)
+        self._config['settings']['shopping_list_mode'] = str(self._shopping_list_mode)
+        self._config['settings']['shopping_list'] = str(self._shopping_list)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -661,6 +415,27 @@ class Settings:
         self._run_as_overlay = not self._run_as_overlay
         self._save_config()
 
+    def _update_shopping_list_mode(self) -> None:
+        self._shopping_list_mode = not self._shopping_list_mode
+        self._save_config()
+
+    def _update_shopping_list(self) -> None:
+        shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().split(",")))
+        if len(shopping_list) == 0 or len(self._shopping_list_entry.get().strip()) == 0:
+            self._update_shopping_list_label("Error: Must enter at least one item")
+            return
+        for item in shopping_list:
+            if item not in self._items_map.items():
+                self._update_shopping_list_label('Error: unknown item "{0}"'.format(item))
+                return
+        self._update_shopping_list_label("Shopping list updated!")
+        self._shopping_list = ",".join(shopping_list)
+        self._save_config()
+    
+    def _update_shopping_list_label(self, value) -> None:
+        self._shopping_list_label.set(value)
+        self._window.update_idletasks()
+
     def should_display_inventory_items(self) -> bool:
         return self._display_inventory_items
 
@@ -676,50 +451,8 @@ class Settings:
     def get_scan_hotkey(self) -> str:
         return self._scan_hotkey
 
-def show_warning(text: str) -> None:
-    messagebox.showwarning('poe-archnemesis-scanner', text)
+    def is_shopping_list_mode(self) -> bool:
+        return self._shopping_list_mode
 
-def show_error_and_die(text: str) -> None:
-    # Dealing with inconveniences as Perl would
-    messagebox.showerror('poe-archnemesis-scanner', text)
-    sys.exit()
-
-def get_poe_window_info() -> PoeWindowInfo:
-    info = PoeWindowInfo()
-    hwnd = win32gui.FindWindow(None, 'Path of Exile')
-    if hwnd == 0:
-        show_error_and_die('Path of Exile is not running.')
-
-    cx0, cy0, cx1, cy1 = win32gui.GetClientRect(hwnd)
-    x0, y0 = win32gui.ClientToScreen(hwnd, (cx0, cy0))
-    info.x = x0
-    info.y = y0
-    info.width = cx1 - cx0
-    info.height = cy1 - cy0
-    return info
-
-def get_poe_image_info(src: str) -> PoeWindowInfo:
-    info = PoeWindowInfo()
-    info.src = Image.open(src, "r")
-    info.x = 0
-    info.y = 0
-    info.width = info.src.width
-    info.height = info.src.height
-    return info
-
-if __name__ == "__main__":
-    # Create root as early as possible to initialize some modules (e.g. ImageTk)
-    root = tk.Tk()
-    root.withdraw()
-
-    if (len(sys.argv) > 1):
-        info = get_poe_image_info(sys.argv[1])
-    else:
-        info = get_poe_window_info()
-
-    items_map = ArchnemesisItemsMap()
-
-    image_scanner = ImageScanner(info, items_map)
-
-    overlay = UIOverlay(root, info, items_map, image_scanner)
-    overlay.run()
+    def get_shopping_list(self) -> str:
+        return self._shopping_list
