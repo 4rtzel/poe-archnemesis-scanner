@@ -458,11 +458,11 @@ class Settings:
         shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().split(",")))
         if len(shopping_list) == 0 or len(self._shopping_list_entry.get().strip()) == 0:
             self._update_shopping_list_label("Error: Must enter at least one item")
-            raise ValueError
+            return
         for item in shopping_list:
             if item not in self._items_map.items():
                 self._update_shopping_list_label('Error: unknown item "{0}"'.format(item))
-                raise ValueError
+                return
         self._update_shopping_list_label("Shopping list updated!")
         self._shopping_list = ",".join(shopping_list)
         self._save_config()
