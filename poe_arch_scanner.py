@@ -207,22 +207,22 @@ class PoeWindowInfo:
     y: int = 0
     width: int = 0
     height: int = 0
-    client_width: int = 0
-    client_height: int = 0
+    src: Image = None
 
 class ImageScanner:
     """
     Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
-        total_w = round(info.client_height * 0.62)
+        total_w = round(info.height * 0.62)
         h = w = round(total_w * 0.652)
         x = info.x + round(total_w / 2) - round(w / 2) - 1
-        y = info.y + round((info.client_height - 5) * 0.3035) - 1
+        y = info.y + round((info.height - 5) * 0.3035) - 1
 
         items_map._update_images(int(w / 8)) # maybe there is a better place to put this, but we don't want to keep looking up the files
 
         self._scanner_window_size = (x, y, w, h)
+        self._image_src = info.src
         self._items_map = items_map
         self._confidence_threshold = 0.83
 
@@ -233,8 +233,11 @@ class ImageScanner:
             self._scanner_window_size[0] + self._scanner_window_size[2],
             self._scanner_window_size[1] + self._scanner_window_size[3]
         )
-        screen = ImageGrab.grab(bbox=bbox)
-        # screen.save("test.png")
+        if self._image_src:
+            screen = self._image_src.crop(box=bbox)
+        else:
+            screen = ImageGrab.grab(bbox=bbox)
+        # screen.save("test/screenshot.png")
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
@@ -270,10 +273,6 @@ class ImageScanner:
     @property
     def scanner_window_size(self) -> Tuple[int, int, int, int]:
         return self._scanner_window_size
-
-    @scanner_window_size.setter
-    def scanner_window_size(self, value: Tuple[int, int, int, int]) -> None:
-        raise Exception("not allowed anymore")
 
     @property
     def confidence_threshold(self) -> float:
@@ -390,7 +389,7 @@ class UIOverlay:
         self._scan_results_window = UIOverlay.create_toplevel_window()
         x, y = self._scan_results_window_saved_position
         if x == -1:
-            x = self._window_info.x + int(self._window_info.client_height * 0.62)
+            x = self._window_info.x + int(self._window_info.height * 0.62)
             y = self._window_info.y
         self._scan_results_window.geometry(f'+{x}+{y}')
 
@@ -673,19 +672,32 @@ def get_poe_window_info() -> PoeWindowInfo:
     x0, y0 = win32gui.ClientToScreen(hwnd, (cx0, cy0))
     info.x = x0
     info.y = y0
-    info.client_width = cx1 - cx0
-    info.client_height = cy1 - cy0
+    info.width = cx1 - cx0
+    info.height = cy1 - cy0
     return info
 
-# Create root as early as possible to initialize some modules (e.g. ImageTk)
-root = tk.Tk()
-root.withdraw()
+def get_poe_image_info(src: str) -> PoeWindowInfo:
+    info = PoeWindowInfo()
+    info.src = Image.open(src, "r")
+    info.x = 0
+    info.y = 0
+    info.width = info.src.width
+    info.height = info.src.height
+    return info
 
-info = get_poe_window_info()
+if __name__ == "__main__":
+    # Create root as early as possible to initialize some modules (e.g. ImageTk)
+    root = tk.Tk()
+    root.withdraw()
 
-items_map = ArchnemesisItemsMap()
+    if (len(sys.argv) > 1):
+        info = get_poe_image_info(sys.argv[1])
+    else:
+        info = get_poe_window_info()
 
-image_scanner = ImageScanner(info, items_map)
+    items_map = ArchnemesisItemsMap()
 
-overlay = UIOverlay(root, info, items_map, image_scanner)
-overlay.run()
+    image_scanner = ImageScanner(info, items_map)
+
+    overlay = UIOverlay(root, info, items_map, image_scanner)
+    overlay.run()
