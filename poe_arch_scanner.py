@@ -1,6 +1,7 @@
 import sys
 from dataclasses import dataclass
 from configparser import ConfigParser
+from threading import Thread
 
 import win32gui
 from win32clipboard import *
@@ -102,19 +103,25 @@ class ArchnemesisItemsMap:
         self._images = dict()
         self._small_image_size = 30
         # left top right down
-        self._crop_ratio = (0.2, 0.2, 0.2, 0.25)
+        self._crop_ratio = (0.05, 0.05, 0.05, 0.2)
 
     def _update_images(self, image_size):
         # To prevent borders from stopping the scan, crop a bit
+        least_mask = 0
         for item, _ in self._arch_items:
             self._images[item] = dict()
             image = self._load_image(item, image_size)
             self._image_size = image.size
-            self._images[item]['scan-image'] = self._create_scan_image(image, item)
+            self._images[item]['scan-image'] = list(self._create_scan_image(image, item))
+            least_mask = max(least_mask, self._images[item]['scan-image'][2])
             # Convert the image to Tk image because we're going to display it
             self._images[item]['display-image'] = ImageTk.PhotoImage(image=image)
             image = image.resize((self._small_image_size, self._small_image_size))
             self._images[item]['display-small-image'] = ImageTk.PhotoImage(image=image)
+        
+        for item in self._images:
+            value = self._images[item]
+            value['scan-image'][2] = value['scan-image'][2] / least_mask
 
     def _load_image(self, item: str, image_size: float):
         image = Image.open(f'pictures/{item}.png')
@@ -135,19 +142,20 @@ class ArchnemesisItemsMap:
         image_without_alpha = Image.alpha_composite(background, scan_image)
         scan_image_array = np.asarray(scan_image)
         alpha_channel = scan_image_array.T[3]
-        # Disabled due to performance issues:
-        # for x in alpha_channel:
-        #     for y in range(x.size):
-        #         x[y] = 255 if x[y] > 40 else 0
+        for x in alpha_channel:
+            for y in range(x.size):
+                x[y] = 255 if x[y] > 50 else 0
         scan_image_array.T[0] = scan_image_array.T[1] = scan_image_array.T[2] = scan_image_array.T[3]
         scan_mask = cv2.cvtColor(scan_image_array, cv2.COLOR_RGBA2BGR)
         scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
 
-        # Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
-        # Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
+        Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
+        Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
+
+        nonzero_mask = pow(np.sum(np.count_nonzero(np.count_nonzero(scan_mask == 255, axis = 2) == 3, axis = 0)), 0.5)
 
         # Crop the image to help with scanning
-        return (scan_template, scan_mask)
+        return (scan_template, scan_mask, nonzero_mask)
 
 
     def get_scan_image(self, item):
@@ -215,16 +223,20 @@ class ImageScanner:
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
         total_w = round(info.height * 0.62)
-        h = w = round(total_w * 0.652)
+        h = w = round(total_w * 0.65)
         x = info.x + round(total_w / 2) - round(w / 2) - 1
         y = info.y + round((info.height - 5) * 0.3035) - 1
 
-        items_map._update_images(int(w / 8)) # maybe there is a better place to put this, but we don't want to keep looking up the files
+        items_map._update_images(int(w / 8) - 1) # maybe there is a better place to put this, but we don't want to keep looking up the files
 
         self._scanner_window_size = (x, y, w, h)
         self._image_src = info.src
         self._items_map = items_map
         self._confidence_threshold = 0.83
+
+    def matchInThread(self, results, item, screen, template, mask):
+        results[item]["heat_map"] = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
+
 
     def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
         bbox = (
@@ -237,25 +249,38 @@ class ImageScanner:
             screen = self._image_src.crop(box=bbox)
         else:
             screen = ImageGrab.grab(bbox=bbox)
-        # screen.save("test/screenshot.png")
+        screen.save("test/screenshot.png")
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
         confidencelist = [ [ None for x in range(8) ] for y in range(8) ]
-        width = int(self._scanner_window_size[2] / 8)
+        width = int(self._scanner_window_size[2] / 8) - 1
+
+        threads = dict()
 
         for item in self._items_map.items():
-            template, mask = self._items_map.get_scan_image(item)
-            
-            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+            template, mask, mult = self._items_map.get_scan_image(item)
+            data = threads[item] = {}
+            data["thread"] = Thread(target=self.matchInThread, args=(threads, item, screen, template, mask))
+            data["thread"].start()
+            data["mult"] = mult
+
+        for item in threads:
+            threaddata = threads[item]
+            threaddata["thread"].join()
+            heat_map = threaddata["heat_map"]
+            mult = threaddata["mult"]
+
             findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
                 for (x, y) in zip(findings[1], findings[0]):
-                    confidence = heat_map[y][x]
+                    confidence = heat_map[y][x] * mult
+                    axf = x / width
+                    ayf = y / width
                     ax = int(x / width)
                     ay = int(y / width)
                     if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
-                        print(f'at {ax}x{ay} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
+                        print(f'at {axf}x{ayf} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
                         confidencelist[ay][ax] = (item, confidence)
 
         results = dict()
