@@ -150,8 +150,8 @@ class ArchnemesisItemsMap:
         scan_mask = cv2.cvtColor(scan_image_array, cv2.COLOR_RGBA2BGR)
         scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
 
-        Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
-        Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
+        # Image.fromarray(cv2.cvtColor(scan_template, cv2.COLOR_BGR2RGB), 'RGB').save(f'test/{item}.png')
+        # Image.fromarray(scan_mask, 'RGB').save(f'test/{item}_mask.png')
 
         nonzero_mask = pow(np.sum(np.count_nonzero(np.count_nonzero(scan_mask == 255, axis = 2) == 3, axis = 0)), 0.5)
 
@@ -250,7 +250,7 @@ class ImageScanner:
             screen = self._image_src.crop(box=bbox)
         else:
             screen = ImageGrab.grab(bbox=bbox)
-        screen.save("test/screenshot.png")
+        # screen.save("test/screenshot.png")
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
