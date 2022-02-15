@@ -233,7 +233,7 @@ class ImageScanner:
         self._scanner_window_size = (x, y, w, h)
         self._image_src = info.src
         self._items_map = items_map
-        self._confidence_threshold = 0.83
+        self._confidence_threshold = 0.75
 
     def matchInThread(self, screen, template, mask):
         return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
