@@ -135,10 +135,10 @@ class ArchnemesisItemsMap:
         image_without_alpha = Image.alpha_composite(background, scan_image)
         scan_image_array = np.asarray(scan_image)
         alpha_channel = scan_image_array.T[3]
-        for x in alpha_channel:
-            for y in range(x.size):
-                x[y] = 255
-                #x[y] = 255 if x[y] > 200 else 0
+        # Disabled due to performance issues:
+        # for x in alpha_channel:
+        #     for y in range(x.size):
+        #         x[y] = 255 if x[y] > 40 else 0
         scan_image_array.T[0] = scan_image_array.T[1] = scan_image_array.T[2] = scan_image_array.T[3]
         scan_mask = cv2.cvtColor(scan_image_array, cv2.COLOR_RGBA2BGR)
         scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
@@ -234,6 +234,7 @@ class ImageScanner:
             self._scanner_window_size[1] + self._scanner_window_size[3]
         )
         screen = ImageGrab.grab(bbox=bbox)
+        # screen.save("test.png")
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
@@ -243,7 +244,7 @@ class ImageScanner:
         for item in self._items_map.items():
             template, mask = self._items_map.get_scan_image(item)
             
-            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
+            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
             findings = np.where(heat_map >= self._confidence_threshold)
             if len(findings[0]) > 0:
                 for (x, y) in zip(findings[1], findings[0]):
