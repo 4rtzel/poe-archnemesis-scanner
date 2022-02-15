@@ -512,8 +512,8 @@ class UIOverlay:
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
         for (x, y, width, height) in inventory_items:
-            x = self._image_scanner._scanner_window_size[0] + x * width
-            y = self._image_scanner._scanner_window_size[1] + y * height
+            x = self._image_scanner._scanner_window_size[0] + x * width + x
+            y = self._image_scanner._scanner_window_size[1] + y * height + y
             w = UIOverlay.create_toplevel_window(bg=color)
             w.geometry(f'{width}x{height}+{x}+{y}')
             self._highlight_windows_to_show.append(w)
