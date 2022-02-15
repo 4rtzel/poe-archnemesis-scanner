@@ -1,7 +1,8 @@
 import sys
+import os
 from dataclasses import dataclass
 from configparser import ConfigParser
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import win32gui
 from win32clipboard import *
@@ -234,8 +235,8 @@ class ImageScanner:
         self._items_map = items_map
         self._confidence_threshold = 0.83
 
-    def matchInThread(self, results, item, screen, template, mask):
-        results[item]["heat_map"] = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
+    def matchInThread(self, screen, template, mask):
+        return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
 
 
     def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
@@ -256,32 +257,28 @@ class ImageScanner:
         confidencelist = [ [ None for x in range(8) ] for y in range(8) ]
         width = int(self._scanner_window_size[2] / 8) - 1
 
-        threads = dict()
+        futures = dict()
 
-        for item in self._items_map.items():
-            template, mask, mult = self._items_map.get_scan_image(item)
-            data = threads[item] = {}
-            data["thread"] = Thread(target=self.matchInThread, args=(threads, item, screen, template, mask))
-            data["thread"].start()
-            data["mult"] = mult
+        with ThreadPoolExecutor(max_workers=max(1, (os.cpu_count() or 3) - 2)) as e:
+            for item in self._items_map.items():
+                template, mask, mult = self._items_map.get_scan_image(item)
+                futures[e.submit(self.matchInThread, screen, template, mask)] = (item, mult)
+            
+            for thread in as_completed(futures):
+                item, mult = futures[thread]
+                heat_map = thread.result()
 
-        for item in threads:
-            threaddata = threads[item]
-            threaddata["thread"].join()
-            heat_map = threaddata["heat_map"]
-            mult = threaddata["mult"]
-
-            findings = np.where(heat_map >= self._confidence_threshold)
-            if len(findings[0]) > 0:
-                for (x, y) in zip(findings[1], findings[0]):
-                    confidence = heat_map[y][x] * mult
-                    axf = x / width
-                    ayf = y / width
-                    ax = int(x / width)
-                    ay = int(y / width)
-                    if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
-                        print(f'at {axf}x{ayf} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
-                        confidencelist[ay][ax] = (item, confidence)
+                findings = np.where(heat_map >= self._confidence_threshold)
+                if len(findings[0]) > 0:
+                    for (x, y) in zip(findings[1], findings[0]):
+                        confidence = heat_map[y][x] * mult
+                        axf = x / width
+                        ayf = y / width
+                        ax = int(x / width)
+                        ay = int(y / width)
+                        if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
+                            print(f'at {axf}x{ayf} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
+                            confidencelist[ay][ax] = (item, confidence)
 
         results = dict()
 
