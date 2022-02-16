@@ -133,7 +133,7 @@ class ArchnemesisItemsMap:
         nodes = [tree]
         while len(nodes) > 0:
             node = nodes.pop(0)
-            children = self._get_item_components(node.item)
+            children = self.get_components_for(node.item)
             if len(children) > 0:
                 node.components = [RecipeItemNode(c, []) for c in children]
                 nodes.extend(node.components)
@@ -146,7 +146,7 @@ class ArchnemesisItemsMap:
                 parents.append(parent)
         return parents
 
-    def _get_item_components(self, item) -> List[str]:
+    def get_components_for(self, item) -> List[str]:
         return next(l for x, l in self._arch_items if x == item)
 
     @property
