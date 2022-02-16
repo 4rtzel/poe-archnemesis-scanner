@@ -29,18 +29,17 @@ class ImageScanner:
 
         # hack: these ones looks like background or skull to algorithm
         self._score_mult = dict()
-        self._score_mult['Mana Siphoner'] = 0.85
-        self._score_mult['Kitava-Touched'] = 0.9
-        self._score_mult['Shakari-Touched'] = 0.9
-        self._score_mult['Ice Prison'] = 0.85 # similar to mana siphoner
+        self._score_mult['Mana Siphoner'] = 0.96
+        self._score_mult['Kitava-Touched'] = 0.85
+        self._score_mult['Ice Prison'] = 0.98 # similar to mana siphoner
         self._score_mult['Temporal Bubble'] = 0.9 # similar to skull, be last resort
         self._score_mult['Berserker'] = 0.95 # background too dark
-        self._score_mult['Echoist'] = 0.93 # background too dark
+        self._score_mult['Echoist'] = 0.9 # background too dark
 
     def matchInThread(self, screen, template, mask):
         return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
 
-    def scanList(self) -> List[List[Tuple[str, float, int]]]:
+    def scanList(self) -> List[List[Tuple[str, float, int, dict[str: float]]]]:
         bbox = (
             self._scanner_window_size[0] - self._over_scan,
             self._scanner_window_size[1] - self._over_scan,
@@ -70,9 +69,11 @@ class ImageScanner:
                 score_mult = self._score_mult[item] if item in self._score_mult else 1
                 
                 # hack: algorithm bad at blue since background
-                item_confidence_mod = 1 if item != "Brine King-Touched" else 0.97
-                item_confidence_mod = item_confidence_mod if item != "Mana Siphoner" else 0.94
-                item_confidence_mod = item_confidence_mod if item != "Ice Prison" else 0.94
+                item_confidence_mod = 1 if item != "Brine King-Touched" else 0.99
+                item_confidence_mod = item_confidence_mod if item != "Mana Siphoner" else 1.05
+                item_confidence_mod = item_confidence_mod if item != "Ice Prison" else 1.05
+                item_confidence_mod = item_confidence_mod if item != "Echoist" else 0.98
+                item_confidence_mod = item_confidence_mod if item != "Shakari-Touched" else 1.15
 
                 heat_map = thread.result()
 
@@ -82,9 +83,12 @@ class ImageScanner:
                         confidence = heat_map[y][x] * score_mult / item_confidence_mod
                         ax = int((x + self._over_scan) / width)
                         ay = int((y + self._over_scan) / width)
-                        if confidencelist[ay][ax] is None or confidencelist[ay][ax][1] < confidence:
-                            # print(f'at {ax}x{ay} found {item} @ {confidence} {"overriden" if confidencelist[ay][ax] else ""}')
-                            confidencelist[ay][ax] = (item, confidence, width)
+                        previous = confidencelist[ay][ax]
+
+                        if previous is None or previous[1] < confidence:
+                            confidencelist[ay][ax] = (item, confidence, width, previous[3] if previous else dict())
+						
+                        confidencelist[ay][ax][3][item] = confidence
         
         return confidencelist
 
