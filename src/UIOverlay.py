@@ -31,14 +31,7 @@ class UIOverlay:
         self._scan_results_window_saved_position = (-1, 0)
 
 
-        self._settings = Settings(root, items_map, image_scanner)
-
-        hotkey = self._settings.get_scan_hotkey()
-        if hotkey:
-            try:
-                keyboard.add_hotkey(hotkey, self._hotkey_pressed)
-            except ValueError:
-                print('Invalid scan hotkey')
+        self._settings = Settings(root, items_map, image_scanner, on_scan_hotkey=self._hotkey_pressed)
 
         self._create_controls()
 
@@ -283,10 +276,11 @@ class UIOverlay:
         self._root.mainloop()
 
 class Settings:
-    def __init__(self, root: tk.Tk, items_map: ArchnemesisItemsMap, image_scanner):
+    def __init__(self, root: tk.Tk, items_map: ArchnemesisItemsMap, image_scanner, on_scan_hotkey):
         self._root = root
         self._items_map = items_map
         self._image_scanner = image_scanner
+        self._on_scan_hotkey = on_scan_hotkey
         self._window = None
 
         self._config = ConfigParser()
@@ -310,6 +304,7 @@ class Settings:
         self._copy_recipe_to_clipboard = True if b is not None and b == 'True' else False
         b = s.get('scan_hotkey')
         self._scan_hotkey = b if b is not None else ''
+        self._set_scan_hotkey()
         b = s.get('run_as_overlay')
         self._run_as_overlay = True if b is None or b == 'True' else False
         b = s.get('shopping_list_mode')
@@ -366,7 +361,6 @@ class Settings:
         c.grid(row=7, column=0, columnspan=2)
         if self._run_as_overlay:
             c.select()
-
 
         c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
         c.grid(row=8, column=0, columnspan=2)
@@ -445,8 +439,22 @@ class Settings:
         self._save_config()
 
     def _update_scan_hotkey(self) -> None:
+        try:
+            keyboard.remove_hotkey(self._scan_hotkey)
+        except KeyError:
+            # The hotkey didn't exist or self._scan_hotkey had invalid hotkey
+            pass
         self._scan_hotkey = self._scan_hotkey_entry.get()
+        self._set_scan_hotkey()
         self._save_config()
+
+    def _set_scan_hotkey(self) -> None:
+        if self._scan_hotkey:
+            try:
+                keyboard.add_hotkey(self._scan_hotkey, self._on_scan_hotkey)
+            except ValueError:
+                # TODO: show the error in the ui
+                print('Invalid scan hotkey!')
 
     def _update_run_as_overlay(self) -> None:
         self._run_as_overlay = not self._run_as_overlay
@@ -484,9 +492,6 @@ class Settings:
 
     def should_run_as_overlay(self) -> bool:
         return self._run_as_overlay
-
-    def get_scan_hotkey(self) -> str:
-        return self._scan_hotkey
 
     def is_shopping_list_mode(self) -> bool:
         return self._shopping_list_mode
