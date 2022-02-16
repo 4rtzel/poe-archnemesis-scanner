@@ -99,15 +99,15 @@ class UIOverlay:
         results = self._image_scanner.scan()
 
         shopping_list_mode = self._settings.is_shopping_list_mode() is True
-        desired_items = self._settings.get_shopping_list().split(",")
-        if desired_items.count("") > 0:
-            desired_items.remove("")
+        desired_items = [x for x in self._settings.get_shopping_list().split(",") if x]
         shopping_list = self._recipe_shopper.get_missing_items(desired_items, results)
         print("Missing Items:", shopping_list)
 
         main_recipe_list = self._items_map.recipes()
-        shopping_list_recipe_list = [x for x in self._items_map.recipes() if x[0] in self._recipe_shopper._get_full_shopping_list(desired_items)]
-        recipe_list = main_recipe_list if not shopping_list_mode else shopping_list_recipe_list
+        if shopping_list_mode:
+            recipe_list = [x for x in self._items_map.recipes() if x[0] in self._recipe_shopper._get_full_shopping_list(desired_items)]
+        else:
+            recipe_list = main_recipe_list
         if len(results) > 0:
             recipes = list()
             for item, recipe in recipe_list:
@@ -121,7 +121,7 @@ class UIOverlay:
                 trash_recipe_items = [trash_inventory[list(trash_inventory.keys())[i]][0] for i,x in enumerate(trash_recipe_items)]
                 trash_recipe = ('Trash', trash_recipe_items, False, True)
                 recipes.append(trash_recipe)
-                
+
             self._show_scan_results(results, recipes)
 
             self._scan_label_text.set('Hide')
@@ -354,7 +354,7 @@ class Settings:
         if self._run_as_overlay:
             c.select()
 
-        
+
         c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
         c.grid(row=8, column=0, columnspan=2)
         if self._shopping_list_mode:
@@ -431,7 +431,7 @@ class Settings:
         self._update_shopping_list_label("Shopping list updated!")
         self._shopping_list = ",".join(shopping_list)
         self._save_config()
-    
+
     def _update_shopping_list_label(self, value) -> None:
         self._shopping_list_label.set(value)
         self._window.update_idletasks()

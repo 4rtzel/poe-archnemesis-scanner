@@ -10,7 +10,7 @@ class TestStringMethods(unittest.TestCase):
       self._shopper = RecipeShopper(item_map)
       desired_items = ["Effigy", "Corrupter"]
       inventory = {
-        "Effigy": [ [1, 2] ], 
+        "Effigy": [ [1, 2] ],
         "Corrupter": [ [1, 2] ]
         }
 
@@ -22,7 +22,7 @@ class TestStringMethods(unittest.TestCase):
       self._shopper = RecipeShopper(item_map)
       desired_items = ["Effigy", "Berserker"]
       inventory = {
-        "Effigy": [ [1, 2] ], 
+        "Effigy": [ [1, 2] ],
         }
 
       missing_items = self._shopper.get_missing_items(desired_items, inventory)

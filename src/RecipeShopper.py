@@ -23,16 +23,16 @@ class RecipeShopper:
         remove_item_from_inventory(working_inventory, item)
 
     # recursively call this function passing the ingredients for missing items
-    complex_missing_items = list(item for item in missing_items if len(self._item_map.get_subtree_for(item).components) > 0)
+    complex_missing_items = list(item for item in missing_items if len(self._item_map.get_components_for(item)) > 0)
     if len(complex_missing_items) > 0:
       complex_item_ingredients = list()
       for item in complex_missing_items:
-        complex_item_ingredients.extend(self._item_map._get_item_components(item))
+        complex_item_ingredients.extend(self._item_map.get_components_for(item))
       nested_missing_items = self.get_missing_items(complex_item_ingredients, working_inventory)
       missing_items.extend(nested_missing_items)
 
     return missing_items
-  
+
   def get_trash_inventory(self, desired_items: List[str], inventory: Dict[str, List[Tuple[int, int]]]):
     full_shopping_list = self._get_full_shopping_list(desired_items)
     trash_inventory = deepcopy(inventory)
@@ -58,11 +58,14 @@ class RecipeShopper:
       if (len(node.components)):
         flattened.extend(self._flatten_item_trees(node.components))
       return list(flattened)
-    
-    flattened = list(map(flatten_node, trees))
-    return list(np.concatenate(flattened).ravel())
 
-def is_item_owned(inventory: Dict[str, List[Tuple[int, int]]], item: str):
+    flattened = list(map(flatten_node, trees))
+    if flattened:
+      return list(np.concatenate(flattened).ravel())
+    else:
+      return []
+
+def is_item_owned(inventory: Dict[str, List[Tuple[int, int]]], item: str) -> bool:
   return item in inventory.keys() and len(inventory[item]) > 0
 
 def remove_item_from_inventory(inventory:  Dict[str, List[Tuple[int, int]]], item: str):
