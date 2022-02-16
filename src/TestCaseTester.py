@@ -1,4 +1,3 @@
-from tkinter import E
 from ImageScanner import ImageScanner
 from ArchnemesisItemsMap import ArchnemesisItemsMap
 
@@ -66,7 +65,70 @@ tests = [
                 "Arcane Buffer", "Permafrost"
             ]
         ]
-    )
+    ),
+	
+    (
+        "2",
+        [ "1280x1024", "1920x1080" ],
+        [
+            # 0
+            [
+                "Innocence-Touched", "Brine King-Touched",
+                "Juggernaut", "Stormweaver",
+                "Mirror Image", "Assassin",
+                "Toxic", "Entangler"
+            ],
+            # 1
+            [
+                "Abberath-Touched", "Soul Conduit",
+                None, "Abberath-Touched",
+                "Steel-Infused", "Permafrost",
+                "Abberath-Touched", "Arcane Buffer"
+            ],
+            # 2
+            [
+                "Heralding Minions", "Assassin",
+                "Soul Conduit", "Gargantuan",
+                "Bloodletter", "Arcane Buffer",
+                "Steel-Infused", "Corrupter"
+            ],
+            # 3
+            [
+                "Overcharged", "Juggernaut",
+                "Ice Prison", "Juggernaut",
+                "Bonebreaker", "Bombardier",
+                "Crystal-Skinned", "Vampiric"
+            ],
+            # 4
+            [
+                "Rejuvenating", "Assassin",
+                "Treant Horde", "Steel-Infused",
+                "Sentinel", "Crystal-Skinned",
+                "Gargantuan", "Chaosweaver"
+            ],
+            # 5
+            [
+                "Steel-Infused", "Frenzied",
+                "Executioner", "Corpse Detonator",
+                "Sentinel", None,
+                "Sentinel", "Toxic"
+            ],
+            # 6
+            [
+                "Arcane Buffer", "Trickster",
+                "Corpse Detonator", "Toxic",
+                "Chaosweaver", "Sentinel",
+                "Assassin", "Assassin"
+            ],
+            # 7
+            [
+                "Overcharged", "Consecrator",
+                None, "Opulent",
+                "Rejuvenating", "Permafrost",
+                "Opulent", "Corpse Detonator"
+            ]
+        ]
+	)
 ]
 
 def check_results(found, expected):
@@ -79,7 +141,7 @@ def check_results(found, expected):
                 print(f'Diff: {x}x{y} found None expected {expecteditem}')
             elif founditem is not None and expecteditem is None:
                 print(f'Diff: {x}x{y} found {founditem[0]} expected None')
-            elif expecteditem != founditem[0]:
+            elif founditem is not None and expecteditem is not None and expecteditem != founditem[0]:
                 print(f'!!!Diff: {x}x{y} found {founditem[0]} expected {expecteditem}')
 
 
