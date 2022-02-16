@@ -116,7 +116,7 @@ class UIOverlay:
                 trash_recipe_items = [trash_inventory[list(trash_inventory.keys())[i]][0] for i,x in enumerate(trash_recipe_items)]
                 trash_recipe = ('Trash', trash_recipe_items, False, True)
                 recipes.append(trash_recipe)
-                
+
             self._show_scan_results(results, recipes)
 
             self._scan_label_text.set('Hide')
@@ -367,7 +367,7 @@ class Settings:
         if self._run_as_overlay:
             c.select()
 
-        
+
         c = tk.Checkbutton(self._window, text='Shopping List Mode', command=self._update_shopping_list_mode)
         c.grid(row=8, column=0, columnspan=2)
         if self._shopping_list_mode:
@@ -468,7 +468,7 @@ class Settings:
         self._update_shopping_list_label("Shopping list updated!")
         self._shopping_list = ",".join(shopping_list)
         self._save_config()
-    
+
     def _update_shopping_list_label(self, value) -> None:
         self._shopping_list_label.set(value)
         self._window.update_idletasks()

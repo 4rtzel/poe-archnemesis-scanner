@@ -32,7 +32,7 @@ class RecipeShopper:
       missing_items.extend(nested_missing_items)
 
     return missing_items
-  
+
   def get_trash_inventory(self, desired_items: List[str], inventory: Dict[str, List[Tuple[int, int]]]):
     full_shopping_list = self._get_full_shopping_list(desired_items)
     trash_inventory = deepcopy(inventory)
@@ -55,7 +55,7 @@ class RecipeShopper:
       if (len(node.components)):
         flattened.extend(self._flatten_item_trees(node.components))
       return list(flattened)
-    
+
     flattened = list(map(flatten_node, trees))
     if flattened:
       return list(np.concatenate(flattened).ravel())
