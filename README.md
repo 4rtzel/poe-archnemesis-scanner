@@ -30,11 +30,19 @@ The setting window allows you to adjust some parameters to improve the searching
   
 * 'Set confidence threshold' button sets the threshold used by the search algorithm to filter the results. If the algorithm was able to find an area with confidence value higher than the confidence threshold then it will treat it as a match. The default value is 0.94 (or 94%) and should work in most of the cases.
 
+* 'Set scan/hide hotkey' button sets the keyboard hotkey for the 'Scan'/'Hide' button. It accepts a text that represents a hotkey and its modifiers. Examples: 'F11', 'ctrl+shift+s', 'space', 'comma', 'plus', etc.
+
 * 'Display inventory items' checkbox turns additional display setting for scan window. The scan results will also include a list of all of your archnemesis items in the inventory.
 
 * 'Display unavailable recipes' checkbox turns the display of all possible recipes even if you can't currently build them. The unavailable recipes will be indicated by the white color (light green if you already have it in your inventory).
 
-* 'Copy recipe to clipboard' check box copies a recipee string like `^(Malediction|Deadeye)` to your clipboard when clicking on items in the list or tree views. This allows you to paste into the search box and use the in-game highlighting.
+* 'Copy recipe to clipboard' checkbox copies a recipee string like `^(Malediction|Deadeye)` to your clipboard when clicking on items in the list or tree views. This allows you to paste into the search box and use the in-game highlighting.
+
+* 'Run as overlay' checkbox allows you to run the program as the overlay (default) or as a simple window (scan results will still show up on top of the other windows). This is useful with scan hotkey feature to allow you to completely hide the program and rely only on hotkey to show up the scan results.
+
+* 'Shopping List Mode' checkbox tells the program to filter the recipes based on your shopping list parameter. The trash icon will also occur to display the recipes that are not in the list but could be completed.
+
+* 'Set shopping list' button will save your recipe list. When the scan completes, only the recipes in your shopping list, and the recipes needed to create these recipes, will show up. The form has a strict format. You will need to enter the recipes names separated by commas, keeping the right letter case.
 
 The settings are persistent and will be saved/loaded from settings.ini file.
 
@@ -84,7 +92,7 @@ pip.exe install -r requirements.txt
 and then start the program
 
 ```cmd
-python.exe poe_arch_scanner.py
+python.exe src/poe_arch_scanner.py
 ```
 
 ## Known Issues
