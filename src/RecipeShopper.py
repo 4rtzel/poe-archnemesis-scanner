@@ -50,6 +50,9 @@ class RecipeShopper:
     return self._flatten_item_trees(full_shopping_list)
 
   def _flatten_item_trees(self, trees: List[RecipeItemNode]):
+    if len(trees) == 0:
+      return []
+
     def flatten_node(node: RecipeItemNode):
       flattened = [node.item]
       if (len(node.components)):

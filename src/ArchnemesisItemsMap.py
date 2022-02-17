@@ -10,7 +10,7 @@ class ArchnemesisItemsMap:
     """
     Holds the information about all archnemesis items, recipes, images and map them together
     """
-    def __init__(self, scale: float):
+    def __init__(self):
         # Put everything into the list so we could maintain the display order
         self._arch_items = [
             ('Kitava-Touched', ['Tukohama-Touched', 'Abberath-Touched', 'Corrupter', 'Corpse Detonator']),
@@ -78,37 +78,63 @@ class ArchnemesisItemsMap:
             ('Vampiric', []),
             ('Trash', [])
         ]
+
         self._images = dict()
         self._small_image_size = 30
-        self._update_images(scale)
+        # To prevent borders from stopping the scan, crop a bit
+        self._crop_ratio = (0.05, 0.05, 0.05, 0.05)
+        self._level_shape = (0.65, 0.35)
 
-    def _update_images(self, scale):
-        self._scale = scale
+    def _update_images(self, image_size):
         for item, _ in self._arch_items:
             self._images[item] = dict()
-            image = self._load_image(item, scale)
+            image = self._load_image(item, image_size)
             self._image_size = image.size
+
             self._images[item]['scan-image'] = self._create_scan_image(image)
+
             # Convert the image to Tk image because we're going to display it
             self._images[item]['display-image'] = ImageTk.PhotoImage(image=image)
             image = image.resize((self._small_image_size, self._small_image_size))
             self._images[item]['display-small-image'] = ImageTk.PhotoImage(image=image)
 
-    def _load_image(self, item: str, scale: float):
+    def _load_image(self, item: str, image_size: float):
         image = Image.open(f'pictures/{item}.png')
         # Scale the image according to the input parameter
-        return image.resize((int(image.width * scale), int(image.height * scale)))
+        return image.resize((image_size, image_size), Image.BICUBIC)
 
     def _create_scan_image(self, image):
-        # Remove alpha channel and replace it with predefined background color
-        background = Image.new('RGBA', image.size, (10, 10, 32))
-        image_without_alpha = Image.alpha_composite(background, image)
-        scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
-        w, h, _ = scan_template.shape
+        width, height = image.size
+        ratiol, ratiou, ratior, ratiod = self._crop_ratio
 
         # Crop the image to help with scanning
-        return scan_template[int(h * 1.0 / 10):int(h * 2.3 / 3), int(w * 1.0 / 6):int(w * 5.5 / 6)]
+        scan_image = image.crop((
+            int(width * ratiol),
+            int(height * ratiou),
+            int(width * (1 - ratior)),
+            int(height * (1 - ratiod))
+        ))
+        # Remove alpha channel and replace it with predefined background color
+        background = Image.new('RGBA', scan_image.size, (6, 6, 31, 255))
+        image_without_alpha = Image.alpha_composite(background, scan_image)
 
+        scan_mask = np.asarray(Image.new('RGB', scan_image.size, (255, 255, 255)))
+        mask_channel = scan_mask.T[0]
+
+        # Mask out the level area
+        for y in mask_channel[int(len(mask_channel) * (1 - self._level_shape[1])):]:
+            for x in range(int(y.size * self._level_shape[0])):
+                y[x] = 0
+
+
+        # convert to greyscale based on alpha channel of original
+        mask_channel.T[0] = mask_channel.T[1] = mask_channel.T[2]
+        
+        # OpenCV wants BGR
+        scan_mask = cv2.cvtColor(mask_channel, cv2.COLOR_RGB2BGR)
+        scan_template = cv2.cvtColor(np.array(image_without_alpha), cv2.COLOR_RGB2BGR)
+
+        return (scan_template, scan_mask)
 
     def get_scan_image(self, item):
         return self._images[item]['scan-image']
@@ -150,16 +176,16 @@ class ArchnemesisItemsMap:
         return next(l for x, l in self._arch_items if x == item)
 
     @property
+    def small_image_size(self):
+        return self._small_image_size
+
+    @property
     def image_size(self):
         return self._image_size
 
-    @property
-    def scale(self) -> float:
-        return self._scale
-
-    @scale.setter
-    def scale(self, scale: float) -> None:
-        self._update_images(scale)
+    @image_size.setter
+    def image_size(self, image_size: float) -> None:
+        self._update_images(image_size)
 
     @property
     def small_image_size(self):

@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 import numpy as np
 import cv2
 
@@ -6,60 +8,107 @@ from ArchnemesisItemsMap import ArchnemesisItemsMap
 from DataClasses import PoeWindowInfo
 from PIL import ImageGrab
 
-
 class ImageScanner:
     """
     Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
     """
     def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
-        self._scanner_window_size = (
-            info.x,
-            info.y + int(info.client_height / 4),
-            int(info.client_width / 3),
-            int(info.client_height * 2 / 3)
-        )
-        self._items_map = items_map
-        self._confidence_threshold = 0.94
+        total_w = round(info.height * 0.619)
+        h = w = round(total_w * 0.655)
+        x = info.x + int(total_w / 2 - w / 2)
+        y = info.y + int(info.height * 0.301)
 
-    def scan(self) -> Dict[str, List[Tuple[int, int]]]:
+        # maybe there is a better place to put this, but we don't want to keep looking up the files
+        items_map._update_images(int(w / 8))
+
+        self._scanner_window_size = (x, y, w, h)
+        self._image_src = info.src
+        self._items_map = items_map
+        self._confidence_threshold = 0.5
+        self._over_scan = 5
+
+        # hack: these ones looks like background or skull to algorithm
+        self._score_mult = dict()
+        self._score_mult['Mana Siphoner'] = 0.96
+        self._score_mult['Kitava-Touched'] = 0.85
+        self._score_mult['Ice Prison'] = 0.98 # similar to mana siphoner
+        self._score_mult['Temporal Bubble'] = 0.9 # similar to skull, be last resort
+        self._score_mult['Berserker'] = 0.95 # background too dark
+        self._score_mult['Echoist'] = 0.9 # background too dark
+
+    def matchInThread(self, screen, template, mask):
+        return cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED, mask=mask)
+
+    def scanList(self) -> List[List[Tuple[str, float, int, dict[str: float]]]]:
         bbox = (
-            self._scanner_window_size[0],
-            self._scanner_window_size[1],
-            self._scanner_window_size[0] + self._scanner_window_size[2],
-            self._scanner_window_size[1] + self._scanner_window_size[3]
+            self._scanner_window_size[0] - self._over_scan,
+            self._scanner_window_size[1] - self._over_scan,
+            self._scanner_window_size[0] + self._scanner_window_size[2] + self._over_scan,
+            self._scanner_window_size[1] + self._scanner_window_size[3] + self._over_scan
         )
-        screen = ImageGrab.grab(bbox=bbox)
+        if self._image_src:
+            screen = self._image_src.crop(box=bbox)
+        else:
+            screen = ImageGrab.grab(bbox=bbox)
+
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
 
+        confidencelist = [ [ None for x in range(8) ] for y in range(8) ]
+        width = int(self._scanner_window_size[2] / 8) - 1
+
+        futures = dict()
+
+        with ThreadPoolExecutor(max_workers=max(1, os.cpu_count() - 4)) as e:
+            for item in self._items_map.items():
+                template, mask = self._items_map.get_scan_image(item)
+                futures[e.submit(self.matchInThread, screen, template, mask)] = item
+            
+            for thread in as_completed(futures):
+                item = futures[thread]
+                score_mult = self._score_mult[item] if item in self._score_mult else 1
+                
+                # hack: algorithm bad at blue since background
+                item_confidence_mod = 1 if item != "Brine King-Touched" else 0.99
+                item_confidence_mod = item_confidence_mod if item != "Mana Siphoner" else 1.05
+                item_confidence_mod = item_confidence_mod if item != "Ice Prison" else 1.05
+                item_confidence_mod = item_confidence_mod if item != "Echoist" else 0.98
+                item_confidence_mod = item_confidence_mod if item != "Shakari-Touched" else 1.15
+
+                heat_map = thread.result()
+
+                findings = np.where(heat_map >= self._confidence_threshold * item_confidence_mod)
+                if len(findings[0]) > 0:
+                    for (x, y) in zip(findings[1], findings[0]):
+                        confidence = heat_map[y][x] * score_mult / item_confidence_mod
+                        ax = int((x + self._over_scan) / width)
+                        ay = int((y + self._over_scan) / width)
+                        previous = confidencelist[ay][ax]
+
+                        if previous is None or previous[1] < confidence:
+                            confidencelist[ay][ax] = (item, confidence, width, previous[3] if previous else dict())
+						
+                        confidencelist[ay][ax][3][item] = confidence
+        
+        return confidencelist
+
+    def scan(self) -> Dict[str, List[Tuple[int, int, int, int]]]:
+        confidencelist = self.scanList()
         results = dict()
 
-        for item in self._items_map.items():
-            template = self._items_map.get_scan_image(item)
-            heat_map = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
-            _, confidence, _, (x, y) = cv2.minMaxLoc(heat_map)
-            print(f'Best match for {item}: x={x}, y={y} confidence={confidence}', 'too low' if confidence < self._confidence_threshold else '')
-            findings = np.where(heat_map >= self._confidence_threshold)
-            if len(findings[0]) > 0:
-                rectangles = []
-                ht, wt = template.shape[0], template.shape[1]
-                for (x, y) in zip(findings[1], findings[0]):
-                     # Add every box to the list twice in order to retain single (non-overlapping) boxes
-                    rectangles.append([int(x), int(y), int(wt), int(ht)])
-                    rectangles.append([int(x), int(y), int(wt), int(ht)])
+        for y in range(8):
+            for x in range(8):
+                item = confidencelist[y][x]
+                if item is not None:
+                    if item[0] not in results:
+                        results[item[0]] = []
+                    results[item[0]].append((x, y, item[2], item[2]))
 
-                rectangles, _ = cv2.groupRectangles(rectangles, 1, 0.1)
-                results[item] = [(rect[0], rect[1]) for rect in rectangles]
-        print(results)
         return results
 
     @property
     def scanner_window_size(self) -> Tuple[int, int, int, int]:
         return self._scanner_window_size
-
-    @scanner_window_size.setter
-    def scanner_window_size(self, value: Tuple[int, int, int, int]) -> None:
-        self._scanner_window_size = value
 
     @property
     def confidence_threshold(self) -> float:

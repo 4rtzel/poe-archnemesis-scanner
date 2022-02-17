@@ -1,4 +1,5 @@
 from configparser import ConfigParser
+from dataclasses import dataclass
 import keyboard
 import tkinter as tk
 import sys
@@ -12,6 +13,10 @@ from DataClasses import RecipeItemNode
 from RecipeShopper import RecipeShopper
 from constants import COLOR_BG, COLOR_FG_GREEN, COLOR_FG_LIGHT_GREEN, COLOR_FG_ORANGE, COLOR_FG_WHITE, FONT_BIG, FONT_SMALL
 
+@dataclass
+class RecipeItemNode:
+    item: str
+    components: list
 
 class UIOverlay:
     """
@@ -36,7 +41,7 @@ class UIOverlay:
         self._create_controls()
 
         self._root.configure(bg='')
-        self._root.geometry(f'+{info.x + 5}+{info.y + info.title_bar_height + 5}')
+        self._root.geometry(f'+{info.x + 5}+{info.y + 5}')
         if self._settings.should_run_as_overlay():
             self._root.overrideredirect(True)
             self._root.wm_attributes('-topmost', True)
@@ -132,8 +137,8 @@ class UIOverlay:
         self._scan_results_window = UIOverlay.create_toplevel_window()
         x, y = self._scan_results_window_saved_position
         if x == -1:
-            x = self._window_info.x + int(self._window_info.client_width / 3)
-            y = self._window_info.y + self._window_info.title_bar_height
+            x = self._window_info.x + int(self._window_info.height * 0.62)
+            y = self._window_info.y
         self._scan_results_window.geometry(f'+{x}+{y}')
 
         last_column = 0
@@ -232,12 +237,9 @@ class UIOverlay:
 
     def _highlight_items_in_inventory(self, inventory_items: List[Tuple[int, int]], color: str) -> None:
         self._highlight_windows_to_show = list()
-        for (x, y) in inventory_items:
-            x_offset, y_offset, _, _ = self._image_scanner.scanner_window_size
-            x += x_offset
-            y += y_offset
-            width = int(self._items_map.image_size[0] * 0.7)
-            height = int(self._items_map.image_size[1] * 0.7)
+        for (x, y, width, height) in inventory_items:
+            x = self._image_scanner._scanner_window_size[0] + x * width + x * 2 - 1
+            y = self._image_scanner._scanner_window_size[1] + y * height + y * 2 - 1
             w = UIOverlay.create_toplevel_window(bg=color)
             w.geometry(f'{width}x{height}+{x}+{y}')
             self._highlight_windows_to_show.append(w)
@@ -293,10 +295,6 @@ class Settings:
             self._config.add_section('settings')
         s = self._config['settings']
 
-        scanner_window_size = s.get('scanner_window')
-        if scanner_window_size is not None:
-            self._image_scanner.scanner_window_size = tuple(map(int, scanner_window_size.replace('(', '').replace(')', '').replace(',', '').split()))
-        self._items_map.scale = float(s.get('image_scale', self._items_map.scale))
         self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
         b = s.get('display_inventory_items')
         self._display_inventory_items = True if b is not None and b == 'True' else False
@@ -322,17 +320,6 @@ class Settings:
 
         self._window.geometry('+100+200')
         self._window.protocol('WM_DELETE_WINDOW', self._close)
-
-        current_scanner_window = f'{self._image_scanner.scanner_window_size}'.replace('(', '').replace(')', '')
-        v = tk.StringVar(self._window, value=current_scanner_window)
-        self._scanner_window_entry = tk.Entry(self._window, textvariable=v)
-        self._scanner_window_entry.grid(row=0, column=0)
-        tk.Button(self._window, text='Set scanner window', command=self._update_scanner_window).grid(row=0, column=1)
-
-        v = tk.DoubleVar(self._window, value=self._items_map.scale)
-        self._scale_entry = tk.Entry(self._window, textvariable=v)
-        self._scale_entry.grid(row=1, column=0)
-        tk.Button(self._window, text='Set image scale', command=self._update_scale).grid(row=1, column=1)
 
         v = tk.DoubleVar(self._window, value=self._image_scanner.confidence_threshold)
         self._confidence_threshold_entry = tk.Entry(self._window, textvariable=v)
@@ -384,8 +371,6 @@ class Settings:
         self._window = None
 
     def _save_config(self) -> None:
-        self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
-        self._config['settings']['image_scale'] = str(self._items_map.scale)
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
         self._config['settings']['display_unavailable_recipes'] = str(self._display_unavailable_recipes)
@@ -396,28 +381,6 @@ class Settings:
         self._config['settings']['shopping_list'] = str(self._shopping_list)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
-
-    def _update_scanner_window(self) -> None:
-        try:
-            x, y, width, height = map(int, self._scanner_window_entry.get().replace(',', '').split())
-        except ValueError:
-            print('Unable to parse scanner window parameters')
-            return
-
-        scanner_window_to_show = UIOverlay.create_toplevel_window(bg='white')
-        scanner_window_to_show.geometry(f'{width}x{height}+{x}+{y}')
-        self._image_scanner.scanner_window_size = (x, y, width, height)
-        scanner_window_to_show.after(200, scanner_window_to_show.destroy)
-        self._save_config()
-
-    def _update_scale(self) -> None:
-        try:
-            new_scale = float(self._scale_entry.get())
-        except ValueError:
-            print('Unable to parse image scale parameter')
-            return
-        self._items_map.scale = new_scale
-        self._save_config()
 
     def _update_confidence_threshold(self) -> None:
         try:
