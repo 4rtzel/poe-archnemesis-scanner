@@ -262,6 +262,8 @@ class UIOverlay:
         else:
             search_string = tree.item
 
+        search_string = search_string.replace(' ', '\\s')
+
         OpenClipboard()
         EmptyClipboard()
         SetClipboardText('^('+search_string+')')
