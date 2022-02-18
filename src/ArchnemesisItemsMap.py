@@ -107,7 +107,7 @@ class ArchnemesisItemsMap:
         w, h, _ = scan_template.shape
 
         # Crop the image to help with scanning
-        return scan_template[int(h * 1.0 / 10):int(h * 2.3 / 3), int(w * 1.0 / 6):int(w * 5.5 / 6)]
+        return scan_template[int(h * 0.16):int(h * 0.75), int(w * 0.16):int(w * 0.85)]
 
 
     def get_scan_image(self, item):

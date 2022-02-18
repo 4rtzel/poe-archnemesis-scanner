@@ -293,9 +293,6 @@ class Settings:
             self._config.add_section('settings')
         s = self._config['settings']
 
-        scanner_window_size = s.get('scanner_window')
-        if scanner_window_size is not None:
-            self._image_scanner.scanner_window_size = tuple(map(int, scanner_window_size.replace('(', '').replace(')', '').replace(',', '').split()))
         self._items_map.scale = float(s.get('image_scale', self._items_map.scale))
         self._image_scanner.confidence_threshold = float(s.get('confidence_threshold', self._image_scanner.confidence_threshold))
         b = s.get('display_inventory_items')
@@ -322,12 +319,6 @@ class Settings:
 
         self._window.geometry('+100+200')
         self._window.protocol('WM_DELETE_WINDOW', self._close)
-
-        current_scanner_window = f'{self._image_scanner.scanner_window_size}'.replace('(', '').replace(')', '')
-        v = tk.StringVar(self._window, value=current_scanner_window)
-        self._scanner_window_entry = tk.Entry(self._window, textvariable=v)
-        self._scanner_window_entry.grid(row=0, column=0)
-        tk.Button(self._window, text='Set scanner window', command=self._update_scanner_window).grid(row=0, column=1)
 
         v = tk.DoubleVar(self._window, value=self._items_map.scale)
         self._scale_entry = tk.Entry(self._window, textvariable=v)
@@ -384,7 +375,6 @@ class Settings:
         self._window = None
 
     def _save_config(self) -> None:
-        self._config['settings']['scanner_window'] = str(self._image_scanner.scanner_window_size)
         self._config['settings']['image_scale'] = str(self._items_map.scale)
         self._config['settings']['confidence_threshold'] = str(self._image_scanner.confidence_threshold)
         self._config['settings']['display_inventory_items'] = str(self._display_inventory_items)
@@ -396,19 +386,6 @@ class Settings:
         self._config['settings']['shopping_list'] = str(self._shopping_list)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
-
-    def _update_scanner_window(self) -> None:
-        try:
-            x, y, width, height = map(int, self._scanner_window_entry.get().replace(',', '').split())
-        except ValueError:
-            print('Unable to parse scanner window parameters')
-            return
-
-        scanner_window_to_show = UIOverlay.create_toplevel_window(bg='white')
-        scanner_window_to_show.geometry(f'{width}x{height}+{x}+{y}')
-        self._image_scanner.scanner_window_size = (x, y, width, height)
-        scanner_window_to_show.after(200, scanner_window_to_show.destroy)
-        self._save_config()
 
     def _update_scale(self) -> None:
         try:
