@@ -10,7 +10,7 @@ When you start the program three small buttons will pop up in the top left corne
 
 * '[X]' button just closes the program.
 * 'Settings' button open settings window (see below).
-* 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your screen according to the scanning window area and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
+* 'Scan' button does all the magic. Once you press it, the program will enter the scanning mode and the button will change to 'Scanning...'. It will scan your archnemesis inventory and will create a list of all possible recipes. After the scan completes, the button will change again to 'Hide'. Once you examine the scan result, click the 'Hide' button to hide them.
 
 You could also hold the right mouse button to drag the controls around.
 
@@ -20,10 +20,6 @@ The setting window allows you to adjust some parameters to improve the searching
 
 ![settings_window](docs/settings_window.png)
 
-* 'Set scanner window' button modifies the scanning area. The format for the window position is the following `x, y, width, height`. `x` and `y` are the horizontal and vertical offset from the top left corner of the screen. `width` and `height` are horizontal and vertical size of the window.
-
-  When you press the button, a white rectangle will pop up for a moment and then disappear. This rectangle shows the scanning window area to help with adjustments. The default value should work in most cases, but if you want to speed the search, it's recommended to adjust it.
-  
 * 'Set image scale' button sets the scaling factor for the source images. The current search algorithm expects the source image and the image on the screen to be the same size. Thus, we'll need to scale down/up the source images in order to get reliable results.
 
   The default calculated automatically based on the screen resolution and should work for most of the people. However, if you have some non-standard resolution, the search algorithm may not work properly, so you'll need to adjust this parameter manually.
