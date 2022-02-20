@@ -13,22 +13,28 @@ class ImageScanner:
     """
     Implements scanning algorithm with OpenCV. Maintans the scanning window to speed up the scanning.
     """
-    def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap):
+    def __init__(self, info: PoeWindowInfo, items_map: ArchnemesisItemsMap, args):
+        self._args = args
         # I wasn't able to find the actual function that would give me the right sizes so
         # I got these numbers empirically. They are far from perfect, but should work for most
         # resolutions. Probably the better way is to have a mapping for all resolutions
         # and their inventory window sizes, and fallback to these calculations only when needed.
         width_and_height = round(info.client_height * 0.407)
-        high_res_compensation = 0
+        high_res_compensation = 7
         if info.client_height >= 1440:
             # This is my awful attempt to fix the calculations for high resolutions.
             high_res_compensation = round(info.client_height * 0.006)
+        x = args.scanner_window_x if args.scanner_window_x != -1 else info.x + int(info.client_height * 0.115) - high_res_compensation
+        y = args.scanner_window_y if args.scanner_window_y != -1 else info.y + (info.height - info.client_height) + int(info.client_height * 0.313) + high_res_compensation
+        w = args.scanner_window_width if args.scanner_window_width != -1 else width_and_height
+        h = args.scanner_window_height if args.scanner_window_height != -1 else width_and_height
         self._scanner_window_size = (
-            info.x + int(info.client_height * 0.115) - high_res_compensation,
-            info.y + (info.height - info.client_height) + int(info.client_height * 0.313) + high_res_compensation,
-            width_and_height,
-            width_and_height
+            x,
+            y,
+            w,
+            h
         )
+        print(f'Scanner window: x={x}, y={y}, width={w}, height={h}')
 
         self._slot_size = width_and_height / INVENTORY_SIZE
         self._items_map = items_map
@@ -44,6 +50,9 @@ class ImageScanner:
         screen = ImageGrab.grab(bbox=bbox)
         screen = np.array(screen)
         screen = cv2.cvtColor(screen, cv2.COLOR_RGB2BGR)
+        if self._args.show_capture_image:
+            cv2.imshow('', screen)
+            cv2.waitKey(0)
 
         results = defaultdict(list)
 

@@ -1,4 +1,5 @@
 import sys
+import argparse
 from PIL import ImageGrab
 
 from ArchnemesisItemsMap import ArchnemesisItemsMap
@@ -15,6 +16,8 @@ from tkinter import messagebox
 from PIL import ImageGrab
 
 from RecipeShopper import RecipeShopper
+
+import constants
 
 def show_warning(text: str) -> None:
     messagebox.showwarning('poe-archnemesis-scanner', text)
@@ -63,6 +66,19 @@ def calculate_default_scale(info: PoeWindowInfo) -> float:
     scale = info.client_height / (source_image_height * constant)
     return scale
 
+parser = argparse.ArgumentParser(description='Path of Exile archnemesis scanner')
+parser.add_argument(
+    '--show-capture-image',
+    help='shows the captured screen image that the program uses for scanning',
+    dest='show_capture_image',
+    action='store_true')
+
+parser.add_argument('--scanner-window-x', help='x position of scanner window', dest='scanner_window_x', type=int, default=-1)
+parser.add_argument('--scanner-window-y', help='y position of scanner window', dest='scanner_window_y', type=int, default=-1)
+parser.add_argument('--scanner-window-width', help='width of scanner window', dest='scanner_window_width', type=int, default=-1)
+parser.add_argument('--scanner-window-height', help='height of scanner window', dest='scanner_window_height', type=int, default=-1)
+args = parser.parse_args()
+
 # Create root as early as possible to initialize some modules (e.g. ImageTk)
 root = tk.Tk()
 root.withdraw()
@@ -71,7 +87,7 @@ info = get_poe_window_info()
 
 items_map = ArchnemesisItemsMap(calculate_default_scale(info))
 
-image_scanner = ImageScanner(info, items_map)
+image_scanner = ImageScanner(info, items_map, args)
 
 recipe_shopper = RecipeShopper(items_map)
 
