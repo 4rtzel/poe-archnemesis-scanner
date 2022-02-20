@@ -78,13 +78,16 @@ class ImageScanner:
                     confidence = heat_map[y][x]
                     if slots[row][column] is None or slots[row][column][1] < confidence:
                         slots[row][column] = (item, confidence, x, y)
+        total_items_found = 0
         for row in range(INVENTORY_SIZE):
             for column in range(INVENTORY_SIZE):
                 if slots[row][column] is not None:
                     print(f'row={row+1}, column={column+1}, item={slots[row][column][0]}, confidence={slots[row][column][1]}')
                     results[slots[row][column][0]].append((slots[row][column][2], slots[row][column][3]))
+                    total_items_found += 1
                 else:
                     print(f'row={row+1}, column={column+1} is empty')
+        print(f'Items found: {total_items_found}/{INVENTORY_SIZE * INVENTORY_SIZE}')
         return results
 
     @property
