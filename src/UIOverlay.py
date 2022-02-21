@@ -11,6 +11,7 @@ from ImageScanner import ImageScanner
 from DataClasses import RecipeItemNode
 from RecipeShopper import RecipeShopper
 from constants import COLOR_BG, COLOR_FG_GREEN, COLOR_FG_LIGHT_GREEN, COLOR_FG_ORANGE, COLOR_FG_WHITE, FONT_BIG, FONT_SMALL
+from translations import Translation
 
 
 class UIOverlay:
@@ -32,6 +33,9 @@ class UIOverlay:
 
 
         self._settings = Settings(root, items_map, image_scanner, on_scan_hotkey=self._hotkey_pressed)
+        self._translation = Translation(self._settings.get_translation_id())
+        self._font_big = self._translation.get_font_big()
+        self._font_small = self._translation.get_font_small()
 
         self._create_controls()
 
@@ -59,18 +63,18 @@ class UIOverlay:
             self._hide(None)
 
     def _create_controls(self) -> None:
-        l = tk.Button(self._root, text='[X]', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
+        l = tk.Button(self._root, text='[X]', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=self._font_small)
         l.bind('<Button-1>', sys.exit)
         l.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         l.grid(row=0, column=0)
 
-        settings = tk.Button(self._root, text='Settings', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
+        settings = tk.Button(self._root, text='Settings', fg=COLOR_FG_GREEN, bg=COLOR_BG, font=self._font_small)
         settings.bind('<Button-1>', lambda _: self._settings.show())
         settings.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         settings.grid(row=0, column=1)
 
         self._scan_label_text = tk.StringVar(self._root, value='Scan')
-        self._scan_label = tk.Button(self._root, textvariable=self._scan_label_text, fg=COLOR_FG_GREEN, bg=COLOR_BG, font=FONT_SMALL)
+        self._scan_label = tk.Button(self._root, textvariable=self._scan_label_text, fg=COLOR_FG_GREEN, bg=COLOR_BG, font=self._font_small)
         self._scan_label.bind("<Button-1>", self._scan)
         self._scan_label.bind('<B3-Motion>', lambda event: self._drag(self._root, -5, -5, event))
         self._scan_label.grid(row=0, column=2)
@@ -175,7 +179,8 @@ class UIOverlay:
         image.bind('<Button-1>', lambda _, arg1=item, arg2=results: self._show_recipe_browser_tree(arg1, arg2))
         image.bind('<B3-Motion>', self._scan_results_window_drag_and_save)
         image.grid(row=row, column=column)
-        tk.Label(self._scan_results_window, text=label_text, font=FONT_BIG, fg=highlight_color, bg=COLOR_BG).grid(row=row, column=column + 1, sticky='w', padx=5)
+        label_text = self._translation.get_text(label_text)
+        tk.Label(self._scan_results_window, text=label_text, font=self._font_big, fg=highlight_color, bg=COLOR_BG).grid(row=row, column=column + 1, sticky='w', padx=5)
         row += 1
         if row % 10 == 0:
             column += 2
@@ -225,7 +230,7 @@ class UIOverlay:
         # Show parents on row 0
         parents = [RecipeItemNode(p, []) for p in self._items_map.get_parent_recipes_for(item)]
         if len(parents) > 0:
-            tk.Label(self._recipe_browser_window, text='Used in:', bg=COLOR_BG, fg=COLOR_FG_GREEN, font=FONT_BIG).grid(row=0, column=0)
+            tk.Label(self._recipe_browser_window, text='Used in:', bg=COLOR_BG, fg=COLOR_FG_GREEN, font=self._font_big).grid(row=0, column=0)
             for column, p in enumerate(parents):
                 # Reuse the same function for convenience
                 draw_tree(p, 0, column + 1)
@@ -251,7 +256,8 @@ class UIOverlay:
             self._tooltip_window.destroy()
         self._tooltip_window = UIOverlay.create_toplevel_window()
         self._tooltip_window.geometry(f'+{window.winfo_x()}+{window.winfo_y() - 40}')
-        tk.Label(self._tooltip_window, text=text, font=FONT_BIG, bg=COLOR_BG, fg=COLOR_FG_GREEN).pack()
+        text = self._translation.get_text(text)
+        tk.Label(self._tooltip_window, text=text, font=self._font_big, bg=COLOR_BG, fg=COLOR_FG_GREEN).pack()
 
         if inventory_items is not None:
             self._highlight_items_in_inventory(inventory_items, COLOR_FG_GREEN)
@@ -310,7 +316,8 @@ class Settings:
         self._shopping_list_mode = False if b is None or b == 'False' else True
         b = s.get('shopping_list')
         self._shopping_list = '' if b is None else b
-
+        b = s.get('translation_id')
+        self._translation_id = 'en' if b is None else b
 
     def show(self) -> None:
         if self._window is not None:
@@ -384,6 +391,7 @@ class Settings:
         self._config['settings']['run_as_overlay'] = str(self._run_as_overlay)
         self._config['settings']['shopping_list_mode'] = str(self._shopping_list_mode)
         self._config['settings']['shopping_list'] = str(self._shopping_list)
+        self._config['settings']['translation_id'] = str(self._translation_id)
         with open(self._config_file, 'w') as f:
             self._config.write(f)
 
@@ -477,3 +485,6 @@ class Settings:
 
     def get_shopping_list(self) -> str:
         return self._shopping_list
+
+    def get_translation_id(self) -> str:
+        return self._translation_id

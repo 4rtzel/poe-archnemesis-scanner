@@ -79,6 +79,11 @@ parser.add_argument('--scanner-window-width', help='width of scanner window', de
 parser.add_argument('--scanner-window-height', help='height of scanner window', dest='scanner_window_height', type=int, default=-1)
 args = parser.parse_args()
 
+# For Windows - High DPI scaling override
+# https://stackoverflow.com/questions/41315873/attempting-to-resolve-blurred-tkinter-text-scaling-on-windows-10-high-dpi-disp
+from ctypes import windll
+windll.shcore.SetProcessDpiAwareness(1)
+
 # Create root as early as possible to initialize some modules (e.g. ImageTk)
 root = tk.Tk()
 root.withdraw()
