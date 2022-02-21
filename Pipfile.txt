@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+opencv-python = "==4.5.5.62"
+pywin32 = "==303"
+keyboard = "==0.13.5"
+Pillow = "==9.0.1"
+
+[dev-packages]
+yapf = "*"
+pyinstaller = "*"
+
+[requires]
+python_version = "3.10"
