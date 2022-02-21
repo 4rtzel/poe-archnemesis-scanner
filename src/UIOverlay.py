@@ -444,7 +444,7 @@ class Settings:
         self._save_config()
 
     def _update_shopping_list(self) -> None:
-        shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().split(",")))
+        shopping_list = list(map(lambda x: x.strip(), self._shopping_list_entry.get().title().split(",")))
         if len(shopping_list) == 0 or len(self._shopping_list_entry.get().strip()) == 0:
             self._update_shopping_list_label("Error: Must enter at least one item")
             return
@@ -454,10 +454,16 @@ class Settings:
                 return
         self._update_shopping_list_label("Shopping list updated!")
         self._shopping_list = ",".join(shopping_list)
+        self._update_shopping_list_entry(self._shopping_list)
         self._save_config()
 
     def _update_shopping_list_label(self, value) -> None:
         self._shopping_list_label.set(value)
+        self._window.update_idletasks()
+
+    def _update_shopping_list_entry(self, value) -> None:
+        self._shopping_list_entry.delete(0,"end")
+        self._shopping_list_entry.insert(0, value.title())
         self._window.update_idletasks()
 
     def should_display_inventory_items(self) -> bool:
