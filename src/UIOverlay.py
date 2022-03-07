@@ -258,7 +258,8 @@ class UIOverlay:
 
     def _copy_tree_items_to_clipboard(self, tree):
         if len(tree.components) > 0:
-            search_string = '|'.join((str(x.item) for x in tree.components))
+            # leave only 4 first chars of name, poe input is limited to 50 chars
+            search_string = '|'.join((str(x.item)[:4] for x in tree.components))
         else:
             search_string = tree.item
 
